@@ -60,7 +60,7 @@ def hdf5_dataset_exists(file_paths):
     return True
 
 
-def get_hdf5_files(cfg_dict, logger=None):
+def get_hdf5_files(cfg_dict):
     """
     Gets a dict of file paths for the consolidated HDF5 files.
     """
@@ -75,21 +75,19 @@ def get_hdf5_files(cfg_dict, logger=None):
     return file_paths
 
 
-def build_hdf5_dataset(cfg_dict, logger=None):
+def build_hdf5_dataset(cfg_dict):
     """
     Consolidates all individual .gz files into a single HDF5 file per data type,
     organized as [game_idx, run_idx, ckpt_idx, sample_idx].
     """
-    file_paths = get_hdf5_files(cfg_dict, logger=logger)
+    file_paths = get_hdf5_files(cfg_dict)
     print(file_paths)
 
     if hdf5_dataset_exists(file_paths):
-        if logger:
-            print("HDF5 dataset already exists. Skipping consolidation.")
+        print("HDF5 dataset already exists. Skipping consolidation.")
         return file_paths
 
-    if logger:
-        print("Creating consolidated HDF5 dataset files...")
+    print("Creating consolidated HDF5 dataset files...")
 
     # Temporary paths
     tmp_paths = {ftype: path.with_suffix('.hdf5.tmp') for ftype, path in file_paths.items()}
@@ -106,7 +104,7 @@ def build_hdf5_dataset(cfg_dict, logger=None):
         for game_idx, game in enumerate(cfg_dict['games']):
             for run_idx, run in enumerate(cfg_dict['runs']):
                 for ckpt_idx, ckpt in enumerate(cfg_dict['checkpoints']):
-                    dataset = load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist, logger)
+                    dataset = load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist)
 
                     for file_type, data in dataset.items():
                         f = file_dict[file_type]
@@ -164,7 +162,7 @@ def write_to_hdf5(h5_file, game_idx, run_idx, ckpt_idx, data):
     h5_file['data'][game_idx, run_idx, ckpt_idx, ...] = deepcopy(data)
 
 
-def load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist, logger):
+def load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist):
     """
     Loads a single dataset from the specified game, run, and checkpoint.
 
@@ -173,7 +171,6 @@ def load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist, logger):
     :param run: Run identifier
     :param ckpt: Checkpoint identifier
     :param obs_exist: Whether the observation file already exists (to skip loading it)
-    :param logger: Optional logger for logging messages
     :return: Dictionary of loaded datasets
     """
     print("=" * 50)
@@ -182,7 +179,7 @@ def load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist, logger):
     dataset = {}
     _game = snake_to_camel(game)
 
-    if logger: print(f"Loading from game {game}, run {run}, checkpoint {ckpt}")
+    print(f"Loading from game {game}, run {run}, checkpoint {ckpt}")
 
     for file_type in FILE_TYPES:
         gz_filepath = Path(f"{cfg_dict['data_dir']}/{cfg_dict['dataset_type']}/{_game}/{file_type}_{run}_{ckpt}.npy.gz")
@@ -190,15 +187,15 @@ def load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist, logger):
         if file_type == "observation":
 
             if obs_exist:
-                if logger: print("Observation has already been prepocessed. Skipping load.")
+                print("Observation has already been prepocessed. Skipping load.")
                 continue
 
             npy_filepath = gz_filepath.with_suffix('.npy')
             if not npy_filepath.exists():
-                if logger: print(f"Observation file {npy_filepath} does not exist as .npy. Creating from .gz")
-                _data = load_from_gz(gz_filepath, cfg_dict, logger=logger)
+                print(f"Observation file {npy_filepath} does not exist as .npy. Creating from .gz")
+                _data = load_from_gz(gz_filepath, cfg_dict)
                 np.save(npy_filepath, _data)
-                if logger: print(f"Saved {npy_filepath} from .gz on disk.")
+                print(f"Saved {npy_filepath} from .gz on disk.")
                 del _data  # free memory
             
             data = np.load(npy_filepath)
@@ -208,13 +205,13 @@ def load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist, logger):
             
         elif file_type == "action":
             # RL Unplugged actions are already taken from a minimal action set, so no mapping needed
-            data = load_from_gz(gz_filepath, cfg_dict, logger=logger)
+            data = load_from_gz(gz_filepath, cfg_dict)
 
         elif file_type == "reward":
-            data = load_from_gz(gz_filepath, cfg_dict, logger=logger)
+            data = load_from_gz(gz_filepath, cfg_dict)
 
         elif file_type == "terminal":
-            data = load_from_gz(gz_filepath, cfg_dict, logger=logger).astype(bool)
+            data = load_from_gz(gz_filepath, cfg_dict).astype(bool)
             # propagate terminal signals by n_step
             for _ in range(cfg_dict['n_step'] -1):
                 data |= np.pad(data[1:], (0, 1))  # shift left by 1 and OR            
@@ -255,12 +252,12 @@ def snake_to_camel(snake_str):
     components = snake_str.split('_')
     return ''.join(x.capitalize() for x in components)
 
-def load_from_gz(gz_filepath, cfg_dict, logger=None):
+def load_from_gz(gz_filepath, cfg_dict):
     """Load a numpy array from a .npy.gz file."""
     g = gzip.GzipFile(gz_filepath)
     _data = np.load(g)
     data = np.copy(_data[:cfg_dict['samples_per_checkpoint']])
-    if logger: print(f"Using {data.size * data.itemsize / (1024**2):.2f} MB of memory for {gz_filepath.name}")
+    print(f"Using {data.size * data.itemsize / (1024**2):.2f} MB of memory for {gz_filepath.name}")
     del _data  # free memory
     return data
 
