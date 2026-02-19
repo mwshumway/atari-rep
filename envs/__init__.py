@@ -3,7 +3,7 @@ from .base import BaseEnv
 from .atari import AtariEnv
 from .vec_env import VecEnv
 from omegaconf import OmegaConf
-from src.common.class_utils import all_subclasses
+from common.class_utils import all_subclasses
 
 ENVS = {subclass.get_name():subclass
         for subclass in all_subclasses(BaseEnv)}
