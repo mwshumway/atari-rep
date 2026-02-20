@@ -18,17 +18,17 @@ import torch
 class BaseDataset(Dataset):
     name = 'base'
 
-    def __init__(self, file_paths, cfg_dict):
+    def __init__(self, file_paths, args):
         self.file_paths = file_paths
-        # attributes we need from the cfg dict
-        self.games = cfg_dict['games']
-        self.runs = cfg_dict['runs']
-        self.checkpoints = cfg_dict['checkpoints']
-        self.samples_per_checkpoint = cfg_dict['samples_per_checkpoint']
-        self.frame = cfg_dict['frame']
-        self.t_step = cfg_dict['t_step']
-        self.n_step = cfg_dict['n_step']
-        self.gamma = cfg_dict['gamma']
+        # attributes we need from the args object
+        self.games = args.games
+        self.runs = args.runs
+        self.checkpoints = args.checkpoints
+        self.samples_per_checkpoint = args.samples_per_checkpoint
+        self.frame = args.frame
+        self.t_step = args.t_step
+        self.n_step = args.n_step
+        self.gamma = args.gamma
 
         # derived attributes
         self.n_games = len(self.games)

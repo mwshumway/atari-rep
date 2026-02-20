@@ -60,27 +60,27 @@ def hdf5_dataset_exists(file_paths):
     return True
 
 
-def get_hdf5_files(cfg_dict):
+def get_hdf5_files(args):
     """
     Gets a dict of file paths for the consolidated HDF5 files.
     """
     file_paths = {}
     for file_type in FILE_TYPES:
         if file_type == 'observation':
-            file_path = Path(f"{cfg_dict['data_dir']}/consolidated/{cfg_dict['dataset_type']}/{file_type}.hdf5")
+            file_path = Path(f"{args.data_dir}/consolidated/{args.dataset_type}/{file_type}.hdf5")
         else:
-            file_path = Path(f"{cfg_dict['data_dir']}/consolidated/{cfg_dict['dataset_type']}/{file_type}_{cfg_dict['probe_n_step']}_{cfg_dict['gamma']}.hdf5")
+            file_path = Path(f"{args.data_dir}/consolidated/{args.dataset_type}/{file_type}_{args.n_step}_{args.gamma}.hdf5")
         file_paths[file_type] = file_path
     
     return file_paths
 
 
-def build_hdf5_dataset(cfg_dict):
+def build_hdf5_dataset(args):
     """
     Consolidates all individual .gz files into a single HDF5 file per data type,
     organized as [game_idx, run_idx, ckpt_idx, sample_idx].
     """
-    file_paths = get_hdf5_files(cfg_dict)
+    file_paths = get_hdf5_files(args)
     print(file_paths)
 
     if hdf5_dataset_exists(file_paths):
@@ -95,16 +95,16 @@ def build_hdf5_dataset(cfg_dict):
     obs_exist = os.path.exists(file_paths['observation'])
     file_dict = open_hdf5_files(tmp_paths, obs_exist)
 
-    n_games, n_runs, n_checkpoints = len(cfg_dict['games']), len(cfg_dict['runs']), len(cfg_dict['checkpoints'])
+    n_games, n_runs, n_checkpoints = len(args.games), len(args.runs), len(args.checkpoints)
 
     try:
         print("=" * 50)
-        print(cfg_dict['games'])
+        print(f"args.games = {args.games}")
         print("=" * 50)
-        for game_idx, game in enumerate(cfg_dict['games']):
-            for run_idx, run in enumerate(cfg_dict['runs']):
-                for ckpt_idx, ckpt in enumerate(cfg_dict['checkpoints']):
-                    dataset = load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist)
+        for game_idx, game in enumerate(args.games):
+            for run_idx, run in enumerate(args.runs):
+                for ckpt_idx, ckpt in enumerate(args.checkpoints):
+                    dataset = load_checkpoint_dataset(args, game, run, ckpt, obs_exist)
 
                     for file_type, data in dataset.items():
                         f = file_dict[file_type]
@@ -162,11 +162,11 @@ def write_to_hdf5(h5_file, game_idx, run_idx, ckpt_idx, data):
     h5_file['data'][game_idx, run_idx, ckpt_idx, ...] = deepcopy(data)
 
 
-def load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist):
+def load_checkpoint_dataset(args, game, run, ckpt, obs_exist):
     """
     Loads a single dataset from the specified game, run, and checkpoint.
 
-    :param cfg_dict: Configuration dictionary
+    :param args: Arguments object
     :param game: Game name
     :param run: Run identifier
     :param ckpt: Checkpoint identifier
@@ -182,7 +182,7 @@ def load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist):
     print(f"Loading from game {game}, run {run}, checkpoint {ckpt}")
 
     for file_type in FILE_TYPES:
-        gz_filepath = Path(f"{cfg_dict['data_dir']}/{cfg_dict['dataset_type']}/{_game}/{file_type}_{run}_{ckpt}.npy.gz")
+        gz_filepath = Path(f"{args.data_dir}/{args.dataset_type}/{_game}/{file_type}_{run}_{ckpt}.npy.gz")
 
         if file_type == "observation":
 
@@ -193,7 +193,7 @@ def load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist):
             npy_filepath = gz_filepath.with_suffix('.npy')
             if not npy_filepath.exists():
                 print(f"Observation file {npy_filepath} does not exist as .npy. Creating from .gz")
-                _data = load_from_gz(gz_filepath, cfg_dict)
+                _data = load_from_gz(gz_filepath, args)
                 np.save(npy_filepath, _data)
                 print(f"Saved {npy_filepath} from .gz on disk.")
                 del _data  # free memory
@@ -205,15 +205,15 @@ def load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist):
             
         elif file_type == "action":
             # RL Unplugged actions are already taken from a minimal action set, so no mapping needed
-            data = load_from_gz(gz_filepath, cfg_dict)
+            data = load_from_gz(gz_filepath, args)
 
         elif file_type == "reward":
-            data = load_from_gz(gz_filepath, cfg_dict)
+            data = load_from_gz(gz_filepath, args)
 
         elif file_type == "terminal":
-            data = load_from_gz(gz_filepath, cfg_dict).astype(bool)
+            data = load_from_gz(gz_filepath, args).astype(bool)
             # propagate terminal signals by n_step
-            for _ in range(cfg_dict['n_step'] -1):
+            for _ in range(args.n_step -1):
                 data |= np.pad(data[1:], (0, 1))  # shift left by 1 and OR            
 
         elif file_type == "game_id":
@@ -224,13 +224,13 @@ def load_checkpoint_dataset(cfg_dict, game, run, ckpt, obs_exist):
                 game_id = 0  # default to 0 for any other game
                 print(f"Warning: game {game} not found in game list. Defaulting game_id to 0.")
             print("Game ID: ", game_id)
-            data = np.full((cfg_dict['samples_per_checkpoint'],), game_id, dtype=np.int32)
+            data = np.full((args.samples_per_checkpoint,), game_id, dtype=np.int32)
 
         elif file_type == "rtg":
             rewards = dataset['reward']
             dones = dataset['terminal']
-            gamma = cfg_dict['gamma']
-            n_step = cfg_dict['probe_n_step']
+            gamma = args.gamma
+            n_step = args.probe_n_step
             rtgs = np.zeros_like(rewards)
             for step in reversed(range(n_step)):
                 n_step_reward = np.concatenate((rewards[step:], np.zeros(step)))
@@ -252,11 +252,11 @@ def snake_to_camel(snake_str):
     components = snake_str.split('_')
     return ''.join(x.capitalize() for x in components)
 
-def load_from_gz(gz_filepath, cfg_dict):
+def load_from_gz(gz_filepath, args):
     """Load a numpy array from a .npy.gz file."""
     g = gzip.GzipFile(gz_filepath)
     _data = np.load(g)
-    data = np.copy(_data[:cfg_dict['samples_per_checkpoint']])
+    data = np.copy(_data[:args.samples_per_checkpoint])
     print(f"Using {data.size * data.itemsize / (1024**2):.2f} MB of memory for {gz_filepath.name}")
     del _data  # free memory
     return data
@@ -304,14 +304,14 @@ GAMES = ['amidar', 'atlantis', 'bank_heist', 'battle_zone', 'boxing',
 
 
 # ------------------------------------------------------------------------- #
-def get_dataset_class(cfg):
+def get_dataset_class(args):
     """
     Get the dataset class based on the dataset type in the configuration.
 
-    :param cfg: Configuration dictionary
+    :param args: Arguments object
     :return: Dataset class
     """
-    dataset_class = cfg['dataset_class']
+    dataset_class = args.dataset_class
     
     if dataset_class == 'default':
         return DefaultDataset
@@ -319,29 +319,29 @@ def get_dataset_class(cfg):
         raise ValueError(f"Unknown dataset class: {dataset_class}")
 
 
-def get_dataloader(cfg, dataset):
+def get_dataloader(args, dataset):
     """
     Create a DataLoader and Sampler based on the configuration and dataset.
 
-    :param cfg: Configuration dictionary
+    :param args: Arguments object
     :param dataset: Dataset object
     :return: Tuple of (DataLoader, Sampler)
     """
-    prefetch_factor = cfg['prefetch_factor']
-    if cfg['num_workers'] == 0:
+    prefetch_factor = args.prefetch_factor
+    if args.num_workers == 0:
         prefetch_factor = None
     
-    if cfg['distributed']:
-        sampler = DistributedSampler(dataset, shuffle=cfg['shuffle'])
+    if args.distributed:
+        sampler = DistributedSampler(dataset, shuffle=args.shuffle)
         shuffle = False
     else:
         sampler = None
-        shuffle = cfg['shuffle']
+        shuffle = args.shuffle
 
     dataloader = DataLoader(dataset,
-                            batch_size=cfg['batch_size'],
-                            num_workers=cfg['num_workers'],
-                            pin_memory=cfg['pin_memory'],
+                            batch_size=args.batch_size,
+                            num_workers=args.num_workers,
+                            pin_memory=args.pin_memory,
                             shuffle=shuffle,
                             sampler=sampler,
                             drop_last=False,

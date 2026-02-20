@@ -14,17 +14,12 @@ def download_data(args):
 
 
 def build_dataloader(args):
-    if not isinstance(args, dict):
-        raise ValueError("cfg should be an instance of dict")
+    eval_ratio = args.eval_ratio
 
-    eval_ratio = args.get("eval_ratio", None)
-    if eval_ratio is None:
-        raise ValueError("cfg must contain 'eval_ratio' key for evaluation split")
-    
     eval_args = deepcopy(args)
-    eval_args['samples_per_checkpoint'] = int(eval_ratio * args['samples_per_checkpoint'])
-    eval_args['shuffle'] = False
-    eval_args['distributed'] = False
+    eval_args.samples_per_checkpoint = int(eval_ratio * args.samples_per_checkpoint)
+    eval_args.shuffle = False
+    eval_args.distributed = False
 
     # Process/prepare dataset and get file paths
     # instead of having all the games split up into different folders, we just have one folder
