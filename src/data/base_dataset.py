@@ -22,9 +22,9 @@ class BaseDataset(Dataset):
         self.file_paths = file_paths
         # attributes we need from the args object
         self.games = args.games
-        self.runs = args.runs
-        self.checkpoints = args.checkpoints
-        self.samples_per_checkpoint = args.samples_per_checkpoint
+        self.runs = args.data.runs
+        self.checkpoints = args.data.checkpoints
+        self.samples_per_checkpoint = args.data.samples_per_checkpoint
         self.frame = args.frame
         self.t_step = args.t_step
         self.n_step = args.n_step

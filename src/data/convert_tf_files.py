@@ -32,6 +32,7 @@ D. terminal_{run}_{checkpoint}.npy
         1 or True: episode ended at this step.
 """
 
+import certifi
 import tensorflow as tf
 import numpy as np
 from tqdm import tqdm
@@ -44,6 +45,11 @@ import shutil
 # ----------------------------------------
 os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
 os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+# ----------------------------------------
+# Force libcurl/TensorFlow to use the environment's certificates
+# ----------------------------------------
+os.environ['CURL_CA_BUNDLE'] = certifi.where()
+os.environ['SSL_CERT_FILE'] = certifi.where()
 
 # TensorFlow GCS access test (fail fast)
 def check_gcs_access():
@@ -217,38 +223,38 @@ def build_first_n_transitions(game, run, checkpoints, n_transitions, output_dir)
         save_compressed_array(out_files["terminal"], term_arr)
 
 
-def convert_tf_files(cfg):
+def convert_tf_files(args):
     """
     Main function to convert TFRecord files to the expected format.
 
-    :param cfg: Configuration object with necessary parameters.
+    :param args: Configuration object with necessary parameters.
     """
     check_gcs_access()
 
-    output_dir = os.path.join(cfg.data_dir, cfg.dataset_type)
+    output_dir = os.path.join(args.data.data_dir, args.data.dataset_name)
     os.makedirs(output_dir, exist_ok=True)
 
     print("=== Starting TFRecord conversion ===")
 
-    for _game in cfg.games:
+    for _game in args.games:
         game = "".join(w.capitalize() for w in _game.split("_"))
 
         # Skip games already fully processed
         game_dir = os.path.join(output_dir, game)
         if os.path.exists(game_dir):
             existing_files = os.listdir(game_dir)
-            expected_files = len(cfg.runs) * len(cfg.checkpoints) * 4  # 4 files per checkpoint
+            expected_files = len(args.data.runs) * len(args.data.checkpoints) * 4  # 4 files per checkpoint
             if len(existing_files) >= expected_files:
                 print(f"All files for {game} already exist. Skipping.")
                 continue
 
-        for run in cfg.runs:
+        for run in args.data.runs:
             print(f"\nProcessing {game}, run {run}")
             build_first_n_transitions(
                 game=game,
                 run=run,
-                checkpoints=cfg.checkpoints,
-                n_transitions=cfg.samples_per_checkpoint,
+                checkpoints=args.data.checkpoints,
+                n_transitions=args.data.samples_per_checkpoint,
                 output_dir=output_dir
             )   
 

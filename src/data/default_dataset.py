@@ -8,8 +8,8 @@ from src.data.base_dataset import BaseDataset
 
 class DefaultDataset(BaseDataset):
     name = "default"
-    def __init__(self, file_paths, cfg_dict):
-        super().__init__(file_paths, cfg_dict)
+    def __init__(self, file_paths, args):
+        super().__init__(file_paths, args)
     
     def __getitem__(self, idx):
         game_idx, run_idx, ckpt_idx, idx = self.get_indexes(idx)  # unravel, see BaseDataset

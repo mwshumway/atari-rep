@@ -20,21 +20,18 @@ from src.data.default_dataset import DefaultDataset
 
 FILE_TYPES = ['observation', 'action', 'reward', 'terminal', 'game_id', 'rtg']
 
-def data_downloaded(cfg):
+def data_downloaded(args):
     """
     Check if the data specified in the configuration is downloaded.
     """
-
-    dataset_type = cfg.dataset_type
-
-    # check in cfg.data_dir/dataset_type for files
-    dataset_loc = os.path.join(cfg.data_dir, dataset_type)  # e.g. atari-rep-bench/data/pretrain/
+    # check in cfg.data_dir/dataset_name for files
+    dataset_loc = os.path.join(args.data.data_dir, args.data.dataset_name)  # e.g. atari-rep-bench/data/pretrain/
     if not os.path.exists(dataset_loc):
         return False
     
     # Compute expected number of files
     # We expect 4 files per checkpoint, for each game and run
-    n_expected_files = len(cfg.games) * len(cfg.runs) * len(cfg.checkpoints) * 4
+    n_expected_files = len(args.games) * len(args.data.runs) * len(args.data.checkpoints) * 4
 
     num_files = sum(1 for _ in Path(dataset_loc).rglob("*") if _.is_file())
     if num_files >= n_expected_files:
@@ -67,9 +64,9 @@ def get_hdf5_files(args):
     file_paths = {}
     for file_type in FILE_TYPES:
         if file_type == 'observation':
-            file_path = Path(f"{args.data_dir}/consolidated/{args.dataset_type}/{file_type}.hdf5")
+            file_path = Path(f"{args.data.data_dir}/consolidated/{args.data.dataset_name}/{file_type}.hdf5")
         else:
-            file_path = Path(f"{args.data_dir}/consolidated/{args.dataset_type}/{file_type}_{args.n_step}_{args.gamma}.hdf5")
+            file_path = Path(f"{args.data.data_dir}/consolidated/{args.data.dataset_name}/{file_type}_{args.n_step}_{args.gamma}.hdf5")
         file_paths[file_type] = file_path
     
     return file_paths
@@ -95,15 +92,15 @@ def build_hdf5_dataset(args):
     obs_exist = os.path.exists(file_paths['observation'])
     file_dict = open_hdf5_files(tmp_paths, obs_exist)
 
-    n_games, n_runs, n_checkpoints = len(args.games), len(args.runs), len(args.checkpoints)
+    n_games, n_runs, n_checkpoints = len(args.games), len(args.data.runs), len(args.data.checkpoints)
 
     try:
         print("=" * 50)
         print(f"args.games = {args.games}")
         print("=" * 50)
         for game_idx, game in enumerate(args.games):
-            for run_idx, run in enumerate(args.runs):
-                for ckpt_idx, ckpt in enumerate(args.checkpoints):
+            for run_idx, run in enumerate(args.data.runs):
+                for ckpt_idx, ckpt in enumerate(args.data.checkpoints):
                     dataset = load_checkpoint_dataset(args, game, run, ckpt, obs_exist)
 
                     for file_type, data in dataset.items():
@@ -182,7 +179,7 @@ def load_checkpoint_dataset(args, game, run, ckpt, obs_exist):
     print(f"Loading from game {game}, run {run}, checkpoint {ckpt}")
 
     for file_type in FILE_TYPES:
-        gz_filepath = Path(f"{args.data_dir}/{args.dataset_type}/{_game}/{file_type}_{run}_{ckpt}.npy.gz")
+        gz_filepath = Path(f"{args.data.data_dir}/{args.data.dataset_name}/{_game}/{file_type}_{run}_{ckpt}.npy.gz")
 
         if file_type == "observation":
 
@@ -206,7 +203,7 @@ def load_checkpoint_dataset(args, game, run, ckpt, obs_exist):
         elif file_type == "action":
             # RL Unplugged actions are already taken from a minimal action set, so no mapping needed
             data = load_from_gz(gz_filepath, args)
-
+            
         elif file_type == "reward":
             data = load_from_gz(gz_filepath, args)
 
@@ -224,13 +221,13 @@ def load_checkpoint_dataset(args, game, run, ckpt, obs_exist):
                 game_id = 0  # default to 0 for any other game
                 print(f"Warning: game {game} not found in game list. Defaulting game_id to 0.")
             print("Game ID: ", game_id)
-            data = np.full((args.samples_per_checkpoint,), game_id, dtype=np.int32)
+            data = np.full((args.data.samples_per_checkpoint,), game_id, dtype=np.int32)
 
         elif file_type == "rtg":
             rewards = dataset['reward']
             dones = dataset['terminal']
             gamma = args.gamma
-            n_step = args.probe_n_step
+            n_step = args.n_step
             rtgs = np.zeros_like(rewards)
             for step in reversed(range(n_step)):
                 n_step_reward = np.concatenate((rewards[step:], np.zeros(step)))
@@ -256,7 +253,7 @@ def load_from_gz(gz_filepath, args):
     """Load a numpy array from a .npy.gz file."""
     g = gzip.GzipFile(gz_filepath)
     _data = np.load(g)
-    data = np.copy(_data[:args.samples_per_checkpoint])
+    data = np.copy(_data[:args.data.samples_per_checkpoint])
     print(f"Using {data.size * data.itemsize / (1024**2):.2f} MB of memory for {gz_filepath.name}")
     del _data  # free memory
     return data
@@ -311,7 +308,7 @@ def get_dataset_class(args):
     :param args: Arguments object
     :return: Dataset class
     """
-    dataset_class = args.dataset_class
+    dataset_class = args.data.dataset_class
     
     if dataset_class == 'default':
         return DefaultDataset
@@ -327,21 +324,21 @@ def get_dataloader(args, dataset):
     :param dataset: Dataset object
     :return: Tuple of (DataLoader, Sampler)
     """
-    prefetch_factor = args.prefetch_factor
+    prefetch_factor = args.data.prefetch_factor
     if args.num_workers == 0:
         prefetch_factor = None
     
-    if args.distributed:
-        sampler = DistributedSampler(dataset, shuffle=args.shuffle)
+    if args.data.distributed:
+        sampler = DistributedSampler(dataset, shuffle=args.data.shuffle)
         shuffle = False
     else:
         sampler = None
-        shuffle = args.shuffle
+        shuffle = args.data.shuffle
 
     dataloader = DataLoader(dataset,
-                            batch_size=args.batch_size,
+                            batch_size=args.data.batch_size,
                             num_workers=args.num_workers,
-                            pin_memory=args.pin_memory,
+                            pin_memory=args.data.pin_memory,
                             shuffle=shuffle,
                             sampler=sampler,
                             drop_last=False,
