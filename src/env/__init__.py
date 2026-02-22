@@ -10,22 +10,27 @@ ENVS = {subclass.get_name():subclass
         for subclass in all_subclasses(BaseEnv)}
 
 def build_env(cfg):
-    cfg_dict = asdict(cfg)
-    env_type = cfg_dict.pop('type')
+    env_cfg = asdict(cfg.env)
+
+    # Add any relevant fields from the main cfg to env_cfg if needed
+    env_cfg['seed'] = cfg.seed
+    env_cfg['frame'] = cfg.frame
+
+    env_type = env_cfg.pop('type')
     env = ENVS[env_type]
 
-    num_train_envs = cfg_dict.pop('num_train_envs')
-    num_eval_envs = cfg_dict.pop('num_eval_envs')
+    num_train_envs = env_cfg.pop('num_train_envs')
+    num_eval_envs = env_cfg.pop('num_eval_envs')
 
     if num_train_envs > 1:
         raise NotImplementedError('For training, only 1 train_env is supported')
     
-    train_env = env(**cfg_dict)
+    train_env = env(**env_cfg)
 
     eval_envs = []
     for idx in range(num_eval_envs):
-        _cfg_dict = copy.deepcopy(cfg_dict)
-        _cfg_dict['seed'] = cfg_dict['seed'] + idx
+        _cfg_dict = copy.deepcopy(env_cfg)
+        _cfg_dict['seed'] = env_cfg['seed'] + idx
         eval_env = env(**_cfg_dict)
         eval_envs.append(eval_env)
     

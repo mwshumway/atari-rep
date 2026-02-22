@@ -16,16 +16,16 @@ def env_pong(cfg):
     
     try:
         env = AtariEnv(game=game,
-                       frame_skip=cfg.frame_skip,
+                       frame_skip=cfg.env.frame_skip,
                        frame=cfg.frame,
-                       minimal_action_set=cfg.minimal_action_set,
-                       clip_reward=cfg.clip_reward,
-                       episodic_lives=cfg.episodic_lives,
-                       max_start_noops=cfg.max_start_noops,
-                       repeat_action_probability=cfg.repeat_action_probability,
-                       horizon=cfg.horizon,
-                       stack_actions=cfg.stack_actions,
-                       grayscale=cfg.grayscale,
+                       minimal_action_set=cfg.env.minimal_action_set,
+                       clip_reward=cfg.env.clip_reward,
+                       episodic_lives=cfg.env.episodic_lives,
+                       max_start_noops=cfg.env.max_start_noops,
+                       repeat_action_probability=cfg.env.repeat_action_probability,
+                       horizon=cfg.env.horizon,
+                       stack_actions=cfg.env.stack_actions,
+                       grayscale=cfg.env.grayscale,
                        seed=cfg.seed)
     except Exception as e:
         pytest.skip(f"Could not create AtariEnv for game '{game}': {e}")
@@ -121,3 +121,16 @@ def test_load_multiple_games(game_name):
         assert env.game == game_name
     except Exception as e:
         pytest.fail(f"Could not load game {game_name}: {e}")
+
+def test_build_env(cfg):
+    """Test that build_env correctly constructs the environment from cfg."""
+    from src.env import build_env
+    from src.env.vec_env import VecEnv
+    try:
+        train_env, eval_env = build_env(cfg)
+        assert train_env is not None
+        assert eval_env is not None
+        assert isinstance(train_env, AtariEnv)
+        assert isinstance(eval_env, VecEnv)
+    except Exception as e:
+        pytest.fail(f"build_env failed with error: {e}")

@@ -4,6 +4,7 @@ from typing import Optional, List, Tuple
 
 from .data import DataConfig
 from .model import BackboneConfig, NeckConfig, HeadConfig, LoadModelConfig
+from .env import EnvConfig
 
 @dataclass
 class BaseConfig:
@@ -12,6 +13,7 @@ class BaseConfig:
     neck: NeckConfig = field(default_factory=NeckConfig)
     head: HeadConfig = field(default_factory=HeadConfig)
     load_model: LoadModelConfig = field(default_factory=LoadModelConfig)
+    env: EnvConfig = field(default_factory=EnvConfig)
 
     games: List[str] = field(default_factory=lambda: [])
 
@@ -29,14 +31,4 @@ class BaseConfig:
 
     obs_shape: Tuple[int, int, int, int] = (4, 1, 84, 84)
     action_size: int = 18
-
-    frame_skip: int = 4
-    minimal_action_set: bool = True
-    clip_reward: bool = True
-    episodic_lives: bool = True
-    max_start_noops=30
-    repeat_action_probability=0.25
-    horizon: int = 27_000
-    stack_actions: int = 0
-    grayscale: bool = True
     
