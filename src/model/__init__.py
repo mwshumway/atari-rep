@@ -2,14 +2,10 @@ from .backbone import *
 from .neck import *
 from .head import *
 from .base import Model
+from src.utils.class_utils import all_subclasses
 
 import torch
 from dataclasses import asdict
-
-def all_subclasses(cls):
-    return set(cls.__subclasses__()).union(
-        [s for c in cls.__subclasses__() for s in all_subclasses(c)])
-
 
 BACKBONES = {subclass.get_name():subclass
             for subclass in all_subclasses(BaseBackbone)}
