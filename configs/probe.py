@@ -10,3 +10,5 @@ class ProbeConfig:
     n_step: int = 10
     patience: int = 50
     min_delta: float = 1e-4
+
+    hidden_sizes: tuple= ()

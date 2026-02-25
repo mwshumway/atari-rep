@@ -16,6 +16,9 @@ def build_env(cfg):
     env_cfg['seed'] = cfg.seed
     env_cfg['frame'] = cfg.frame
 
+    assert len(cfg.games) == 1, "Only one game should be specified in cfg.games"
+    env_cfg['game'] = cfg.games[0]
+
     env_type = env_cfg.pop('type')
     env = ENVS[env_type]
 

@@ -11,11 +11,13 @@ PRETRAINED_PATHS = {
 SEEDS = [0, 1]
 GAMES = ["seaquest"]
 
+NONLINEAR_PROBE_HIDDEN_SIZES = ()
+
 def make_cmd(path, seed, game, pretrain_type, log_dir):
     cmd = f"""#!/bin/bash -l
 
 # Set SCC project
-#$ -P ds598xz
+#$ -P replearn
 
 # Name the job in the queue
 #$ -N {pretrain_type}_{seed}
@@ -64,6 +66,8 @@ python run_online_rl.py \\
         cmd += f"\n    --load_model.model_path {path} \\"
         cmd += f"\n    --load_model.freeze_layers backbone"
         
+    cmd += f"\n    --probe.hidden_sizes {' '.join(map(str, NONLINEAR_PROBE_HIDDEN_SIZES))}"
+
     cmd += "\n" # Add a final newline to be safe
     return cmd
 

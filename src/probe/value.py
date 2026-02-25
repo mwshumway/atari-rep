@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 import tqdm
 import wandb
 
-from .probe_utils import ProbeDataset, stratified_split
+from .probe_utils import ProbeDataset, stratified_split, build_probe
 
 def compute_metrics(preds, targets):
     mse = nn.functional.mse_loss(preds, targets).item()
@@ -28,8 +28,8 @@ def train_value_probe(cfg, dataset_list, outer_step, device="cuda"):
     test_loader = DataLoader(test_ds, batch_size=cfg.probe.batch_size)
 
     rep_dim = dataset[0][0].shape[-1]
-    probe = nn.Linear(rep_dim, 1).to(device)
-
+    probe = build_probe(rep_dim, 1, cfg.probe.hidden_sizes, device)
+    
     optimizer = optim.Adam(probe.parameters(), lr=cfg.probe.lr)
     criterion = nn.MSELoss()
 

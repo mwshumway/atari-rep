@@ -8,7 +8,7 @@ import tqdm
 from typing import Optional, List
 import wandb
 
-from .probe_utils import ProbeDataset, stratified_split
+from .probe_utils import ProbeDataset, stratified_split, build_probe
 
 def train_action_probe(cfg, dataset_list, outer_step, device="cuda", action_meanings: Optional[List[str]] = None):
     dataset = ProbeDataset(dataset_list)
@@ -46,7 +46,8 @@ def train_action_probe(cfg, dataset_list, outer_step, device="cuda", action_mean
     test_loader = DataLoader(test_ds, batch_size=cfg.probe.batch_size)
 
     rep_dim = dataset[0][0].shape[-1]
-    probe = nn.Linear(rep_dim, cfg.action_size).to(device)
+
+    probe = build_probe(rep_dim, cfg.action_size, cfg.probe.hidden_sizes, device)
 
     optimizer = optim.Adam(probe.parameters(), lr=cfg.probe.lr)
     criterion = nn.CrossEntropyLoss()

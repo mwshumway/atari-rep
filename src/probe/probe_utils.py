@@ -1,4 +1,5 @@
 from torch.utils.data import Dataset, Subset
+from torch import nn
 import random
 from collections import defaultdict
 
@@ -60,3 +61,24 @@ def create_probe_dataset(env_trajectories, cfg):
             state_t, action_t, _, _ = traj[t]
             dataset.append((state_t, action_t, ret))
     return dataset
+
+def build_probe(rep_dim, action_size, hidden_sizes, device):
+    layers = []
+
+    if len(hidden_sizes) == 0:
+        layers.append(nn.Linear(rep_dim, action_size))
+    else:
+        # input layer
+        layers.append(nn.Linear(rep_dim, hidden_sizes[0]))
+        layers.append(nn.ReLU())
+
+        # hidden layers
+        for i in range(len(hidden_sizes) - 1):
+            layers.append(nn.Linear(hidden_sizes[i], hidden_sizes[i + 1]))
+            layers.append(nn.ReLU())
+
+        # output layer
+        layers.append(nn.Linear(hidden_sizes[-1], action_size))
+
+    probe = nn.Sequential(*layers).to(device)
+    return probe
