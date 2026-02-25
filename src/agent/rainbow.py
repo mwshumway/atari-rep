@@ -4,6 +4,7 @@ import copy
 import torch
 from einops import rearrange
 import numpy as np
+import tqdm
 
 class RainbowAgent(BaseAgent):
     name = "rainbow"
@@ -75,10 +76,10 @@ class RainbowAgent(BaseAgent):
     
     def forward(self, online_model, target_model, batch, mode, reduction='mean'):
         # get samples from buffer
-        feat = batch['feat']
+        obs = batch['obs']
         act = batch['act']
         done = batch['done']
-        next_feat = batch['next_feat']
+        next_obs = batch['next_obs']
         G = batch['G']
         
         n_step = batch['n_step']
@@ -87,19 +88,19 @@ class RainbowAgent(BaseAgent):
         tree_idxs = batch['tree_idxs']
         weights = batch['weights']
         
-        n, t, f, c, _, _ = feat.shape
-        feat = rearrange(feat, 'n t f c h w -> n (t f c) h w')
-        next_feat = rearrange(next_feat, 'n t f c h w -> n (t f c) h w')
-        feat = self.aug_func(feat)
+        n, t, f, c, _, _ = obs.shape
+        obs = rearrange(obs, 'n t f c h w -> n (t f c) h w')
+        next_obs = rearrange(next_obs, 'n t f c h w -> n (t f c) h w')
+        obs = self.aug_func(obs)
         if self.cfg.agent.aug_target:
-            next_feat = self.aug_func(next_feat)
-        feat = rearrange(feat, 'n (t f c) h w -> n t f c h w', t=t, f=f, c=c)
-        next_feat = rearrange(next_feat, 'n (t f c) h w -> n t f c h w', t=t, f=f, c=c)
+            next_obs = self.aug_func(next_obs)
+        obs = rearrange(obs, 'n (t f c) h w -> n t f c h w', t=t, f=f, c=c)
+        next_obs = rearrange(next_obs, 'n (t f c) h w -> n t f c h w', t=t, f=f, c=c)
 
         # Calculate current state's q-value distribution
         game_id = torch.LongTensor([[self.game_id]]).to(self.device) 
         game_id = game_id.repeat(n, 1)
-        x, _ = online_model.backbone(feat)
+        x, _ = online_model.backbone(obs)
         if self.cfg.agent.rep:
             _, neck_info = online_model.neck(x, game_id) # game-wise spatial embedding
             x = neck_info[self.cfg.agent.rep_candidate]
@@ -116,7 +117,7 @@ class RainbowAgent(BaseAgent):
             # Calculate n-th next state's q-value distribution
             # next_target_q_dist: (n, a, num_atoms)
             # target_q_dist: (n, num_atoms)
-            ntx, _ = target_model.backbone(next_feat)
+            ntx, _ = target_model.backbone(next_obs)
             if self.cfg.agent.rep:
                 _, neck_info = target_model.neck(ntx, game_id) # game-wise spatial embedding
                 ntx = neck_info[self.cfg.agent.rep_candidate]
@@ -126,7 +127,7 @@ class RainbowAgent(BaseAgent):
             next_target_q_dist = rearrange(next_target_q_dist, 'n t d n_a -> (n t) d n_a')
             
             if self.cfg.agent.double:
-                nox, _ = online_model.backbone(next_feat)
+                nox, _ = online_model.backbone(next_obs)
                 if self.cfg.agent.rep:
                     _, neck_info = online_model.neck(nox, game_id) # game-wise spatial embedding
                     nox = neck_info[self.cfg.agent.rep_candidate]
@@ -208,8 +209,15 @@ class RainbowAgent(BaseAgent):
 
         optimize_step = 1
         self.eps = self.eps_scheduler.get_value(0)
+
+        # Initial rollout before training
+        rollout_logs = self.rollout(online_model)
+        self.logger.update_log(mode="eval", **rollout_logs)
+        self.logger.write_log(mode="eval")
+        self.probe_on_policy(target_model, outer_step=0)
+        self.logger.probe_logger.reset()
         
-        for step in range(self.cfg.agent.num_timesteps):
+        for step in tqdm.tqdm(range(1, self.cfg.agent.num_timesteps+1), desc="Training"):
             online_model.train()
             obs_tensor = self.buffer.encode_obs(obs, prediction=True)
             n, t, _, _, _, _ = obs_tensor.shape
@@ -261,20 +269,20 @@ class RainbowAgent(BaseAgent):
                     self.logger.update_log(mode="eval", **eval_logs)
                 
                 if (step % self.cfg.agent.rollout_freq == 0) and (self.cfg.agent.rollout_freq > 0):
-                    rollout_logs = self.rollout(online_model)
+                    rollout_logs = self.rollout(target_model)
                     self.logger.update_log(mode="eval", **rollout_logs)
+                    self.logger.write_log(mode="eval")
                 
                 if (step % self.cfg.agent.probe_on_policy_freq == 0) and (self.cfg.agent.probe_on_policy_freq > 0):
-                    probe_logs = self.probe_on_policy(online_model)
-                    self.logger.update_log(mode="eval", **probe_logs)
+                    self.probe_on_policy(target_model, step)
+                    self.logger.probe_logger.reset()
                 
                 if (step % self.cfg.agent.save_freq == 0) and (self.cfg.agent.save_freq > 0):
                     self.save_progress()
                 
                 if step % self.cfg.agent.log_freq == 0:
                     self.logger.write_log(mode="train")
-                    self.logger.write_log(mode="eval")
-        
+
         # Final evaluation after training
         rollout_logs = self.rollout(online_model)
         self.logger.update_log(mode="eval", **rollout_logs)
@@ -286,18 +294,16 @@ class RainbowAgent(BaseAgent):
     
     def rollout(self, model):
         """Rollout the model on all the evaluation environments."""
-        game_id = torch.LongTensor([[self.game_id]]).to(self.device)
-        game_id = rearrange(game_id, 'n -> n 1')
-
-        obs = self.eval_env.reset()
+        obs = self.eval_env.reset() # (n, t, num_envs, f, c, h, w)
         all_envs_done = False
         
-        for step in range(self.cfg.agent.max_rollout_steps):
+        for step in tqdm.tqdm(range(self.cfg.agent.max_rollout_steps), desc="Rollout"):
             obs_tensor = self.buffer.encode_obs(obs, prediction=True).to(self.device)
-            n, t, _, _, _, _ = obs_tensor.shape
+            n, t, num_envs, f, c, h, w = obs_tensor.shape
+            obs_tensor = rearrange(obs_tensor, 'n t num_envs f c h w -> (n num_envs) t f c h w')
             with torch.no_grad():
                 backbone_feat, _ = model.backbone(obs_tensor)
-                action = self.predict(model, backbone_feat, eps=self.cfg.agent.eval_eps, n=n, t=t)
+                action = self.predict(model, backbone_feat, eps=self.cfg.agent.eval_eps, n=n * num_envs, t=t)
             
             next_obs, reward, done, info = self.eval_env.step(action.reshape(-1))
 
@@ -309,17 +315,64 @@ class RainbowAgent(BaseAgent):
 
             obs = next_obs
 
-        rollout_logs = self.logger.fetch_log(mode="eval")
-        rollout_logs["rollout_steps"] = step + 1
-        rollout_logs["max_steps_reached"] = all_envs_done
-        return rollout_logs
+        return {
+            "rollout_steps": step + 1,
+            "max_steps_reached": all_envs_done
+        }
     
     def save_progress(self):
         raise NotImplementedError("Progress saving not implemented yet.")
     
-    def probe_on_policy(self, model):
-        """Create an on-policy dataset of the current model and probe it with a linear layer for value and policy prediction."""
-        raise NotImplementedError("On-policy probing not implemented yet.")
+    def probe_on_policy(self, model, outer_step):
+        """
+        Create an on-policy dataset of the current model and probe it with a linear layer.
+        """
+        assert self.cfg.wandb.enabled, "On-policy probing requires logging with wandb to track probe learning curve."
 
+        # Keep track of trajectories per environment to compute returns properly
+        env_trajectories = [[] for _ in range(self.cfg.num_eval_envs)]
+        
+        obs = self.eval_env.reset() # (n, t, num_envs, f, c, h, w)
+        game_id = torch.full((self.cfg.num_eval_envs, 1), self.game_id, dtype=torch.long, device=self.device)
 
+        for step in tqdm.tqdm(range(self.cfg.agent.max_rollout_steps), desc="On-policy probing rollout"):
+            obs_tensor = self.buffer.encode_obs(obs, prediction=True).to(self.device)
+            n, t, num_envs, f, c, h, w = obs_tensor.shape
+            obs_tensor = rearrange(obs_tensor, 'n t num_envs f c h w -> (n num_envs) t f c h w')
+
+            with torch.no_grad():
+                backbone_feat, _ = model.backbone(obs_tensor)
+                if self.cfg.agent.rep:
+                    _, neck_info = model.neck(backbone_feat, game_id=game_id)
+                    neck_feat = neck_info[self.cfg.agent.rep_candidate]
+                else:
+                    neck_feat, _ = model.neck(backbone_feat, game_id=game_id)
+                
+                action = self.predict(model, backbone_feat, eps=self.cfg.agent.eval_eps, n=n * num_envs, t=t)
+
+                next_obs, reward, done, info = self.eval_env.step(action.reshape(-1))
+                self.logger.step(obs, reward, done, info, mode="probe")
+                
+                neck_cpu = neck_feat.cpu().view(num_envs, -1)
+                actions_list = action.reshape(-1).tolist()
+                
+                for i in range(num_envs):
+                    # Store trajectories including the `done` flag to stop accumulation at episode ends
+                    env_trajectories[i].append((neck_cpu[i], actions_list[i], float(reward[i]), bool(done[i])))
+
+                if self.logger.is_traj_done(mode="probe"):
+                    break 
+                
+                obs = next_obs
+        
+        from src.probe.probe_utils import create_probe_dataset
+        dataset = create_probe_dataset(env_trajectories, self.cfg)
+
+        # Train Action Probe
+        from src.probe.action import train_action_probe
+        train_action_probe(cfg=self.cfg, dataset_list=dataset, outer_step=outer_step, device=self.device, action_meanings=self.train_env.get_action_meanings()) 
+
+        # Train Value Probe
+        from src.probe.value import train_value_probe
+        train_value_probe(cfg=self.cfg, dataset_list=dataset, outer_step=outer_step, device=self.device)
             

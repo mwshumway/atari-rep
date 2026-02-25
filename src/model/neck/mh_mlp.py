@@ -54,7 +54,7 @@ class MHMLPNeck(BaseNeck):
                 game_id = torch.full((n, t), game_id, dtype=torch.long, device=x.device)
             
             offset = self.game_offset(game_id)  # (n, t, c * h * w)
-            offset = rearrange(offset, 'n t (c h w) -> n t c h w', c=c, h=h, w=w)
+            offset = rearrange(offset, 'n t (c h w) -> (n t) c h w', c=c, h=h, w=w)
             spatial_embed = base + offset
         else:
             spatial_embed = base

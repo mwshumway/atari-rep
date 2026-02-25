@@ -41,5 +41,6 @@ class LoadModelConfig:
     enable: bool = False
     model_path: str = ""
     load_layers: tuple = ("backbone", "neck")
+    freeze_layers: tuple = ()
 
 

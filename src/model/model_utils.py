@@ -61,3 +61,11 @@ def load_model_weights(model, checkpoint_path, device, load_layers):
     except Exception as e:
         print(f"Error loading checkpoint: {e}")
         raise KeyError(f"Failed to load checkpoint from {checkpoint_path}. Please check the file and try again.")
+    
+
+def freeze_model_weights(model, freeze_layers):
+    for layer_name in freeze_layers:
+        module = getattr(model, layer_name)    
+        for param in module.parameters():
+            param.requires_grad = False
+        print(f'The {layer_name} layer is frozen')

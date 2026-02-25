@@ -25,8 +25,8 @@ class AgentConfig:
     target_tau: float = 0.99
 
     eval_freq: int = -1
-    rollout_freq: int = 10_000
-    probe_on_policy_freq: int = -1
+    rollout_freq: int = 20_000
+    probe_on_policy_freq: int = 20_000
     save_freq: int = -1
     log_freq: int = 1_000
 

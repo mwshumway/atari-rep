@@ -10,6 +10,7 @@ from .scheduler import PriorWeightSchedulerConfig, EpsSchedulerConfig, GammaSche
 from .optimizer import OptimizerConfig
 from .agent import AgentConfig
 from .wandb import WandbConfig
+from .probe import ProbeConfig
 
 @dataclass
 class BaseConfig:
@@ -27,6 +28,7 @@ class BaseConfig:
     optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)
     wandb: WandbConfig = field(default_factory=WandbConfig)
+    probe: ProbeConfig = field(default_factory=lambda: ProbeConfig())
 
     games: List[str] = field(default_factory=lambda: [])
 

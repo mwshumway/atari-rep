@@ -31,6 +31,11 @@ class RainbowLogger:
             env_type=cfg.env_type,
             game=cfg.games[0]
         )
+        self.probe_logger = AgentLogger(
+            num_envs=cfg.num_eval_envs,
+            env_type=cfg.env_type,
+            game=cfg.games[0]
+        )
         self.timestep = 0
     
     def step(self, state, reward, done, info, mode):
@@ -39,18 +44,23 @@ class RainbowLogger:
             self.timestep += 1
         elif mode == "eval":
             self.eval_logger.step(state, reward, done, info)
-    
+        elif mode == "probe":
+            self.probe_logger.step(state, reward, done, info)
     def is_traj_done(self, mode):
         if mode == "train":
             return self.train_logger.is_traj_done
         elif mode == "eval":
             return self.eval_logger.is_traj_done
+        elif mode == "probe":
+            return self.probe_logger.is_traj_done
     
     def fetch_log(self, mode):
         if mode == "train":
             return self.train_logger.fetch_log(mode)
         elif mode == "eval":
             return self.eval_logger.fetch_log(mode)
+        elif mode == "probe":
+            return self.probe_logger.fetch_log(mode)
         else:
             raise ValueError(f"Invalid mode: {mode}")
     
@@ -59,11 +69,13 @@ class RainbowLogger:
             self.train_logger.update_log(**kwargs)
         elif mode == "eval":
             self.eval_logger.update_log(**kwargs)
+        elif mode == "probe":
+            self.probe_logger.update_log(**kwargs)
 
     def write_log(self, mode):
         log_data = self.fetch_log(mode)
         if log_data is not None:
-            log_data = {mode+'_'+k: v for k, v in log_data.items() }
+            log_data = {mode+'/'+k: v for k, v in log_data.items() }
             if self.cfg.wandb.enabled:
                 wandb.log(log_data, step=self.timestep)
 

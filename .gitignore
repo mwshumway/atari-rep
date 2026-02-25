@@ -16,3 +16,6 @@ Thumbs.db
 
 # Project specific files
 data_storage/
+job_logs/
+job_scripts/
+wandb/

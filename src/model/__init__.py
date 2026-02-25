@@ -3,6 +3,7 @@ from .neck import *
 from .head import *
 from .base import Model
 from src.utils.class_utils import all_subclasses
+from src.model.model_utils import load_model_weights, freeze_model_weights
 
 import torch
 from dataclasses import asdict
@@ -55,5 +56,10 @@ def build_model(cfg, device: torch.device):
     model = Model(backbone, neck, head)
 
     print_model_info(model, b_out, n_out, h_out, n_info)
+
+    if cfg.load_model.enable:
+        load_model_weights(model, cfg.load_model.model_path, device, load_layers=cfg.load_model.load_layers)
+    
+    freeze_model_weights(model, freeze_layers=cfg.load_model.freeze_layers)
 
     return model.to(device)
