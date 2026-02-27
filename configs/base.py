@@ -6,11 +6,12 @@ from .data import DataConfig
 from .model import BackboneConfig, NeckConfig, HeadConfig, LoadModelConfig
 from .env import EnvConfig
 from .buffer import BufferConfig
-from .scheduler import PriorWeightSchedulerConfig, EpsSchedulerConfig, GammaSchedulerConfig, NStepSchedulerConfig
+from .scheduler import PriorWeightSchedulerConfig, EpsSchedulerConfig, GammaSchedulerConfig, NStepSchedulerConfig, LRSchedulerConfig, TauSchedulerConfig
 from .optimizer import OptimizerConfig
 from .agent import AgentConfig
 from .wandb import WandbConfig
 from .probe import ProbeConfig
+from .pretrain import PretrainConfig
 
 @dataclass
 class BaseConfig:
@@ -24,17 +25,21 @@ class BaseConfig:
     prior_weight_scheduler: PriorWeightSchedulerConfig = field(default_factory=PriorWeightSchedulerConfig)
     eps_scheduler: EpsSchedulerConfig = field(default_factory=EpsSchedulerConfig)
     gamma_scheduler: GammaSchedulerConfig = field(default_factory=GammaSchedulerConfig)
+    lr_scheduler: LRSchedulerConfig = field(default_factory=LRSchedulerConfig)
+    tau_scheduler: TauSchedulerConfig = field(default_factory=TauSchedulerConfig)
     n_step_scheduler: NStepSchedulerConfig = field(default_factory=NStepSchedulerConfig)
     optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)
     wandb: WandbConfig = field(default_factory=WandbConfig)
     probe: ProbeConfig = field(default_factory=lambda: ProbeConfig())
+    pretrain: PretrainConfig = field(default_factory=lambda: PretrainConfig())
 
     games: List[str] = field(default_factory=lambda: [])
 
     num_gpus_per_node: int = 1
 
     device: str = "cuda" # "cuda" or "cpu"
+    rank: int = 0
 
     seed: int = 0
 
@@ -50,5 +55,11 @@ class BaseConfig:
     env_type: str = "atari"
     num_train_envs: int = 1
     num_eval_envs: int = 100
+
+    master_addr: str = "localhost"
+    master_port: str = "1234" # use any free port
+
+
+    aug_types: List = field(default_factory=lambda: ["random_shift", "intensity"])
 
     

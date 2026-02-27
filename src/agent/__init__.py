@@ -17,9 +17,9 @@ def build_agent(cfg, device, train_env, eval_env, logger, model):
     agent_type = cfg.agent.type
     agent = AGENTS[agent_type]
 
-    if len(cfg.agent.aug_types) == 0:
-        cfg.agent.aug_types = []
-    aug_func = Augmentation(obs_shape=cfg.obs_shape, aug_types=cfg.agent.aug_types)
+    if len(cfg.aug_types) == 0:
+        cfg.aug_types = []
+    aug_func = Augmentation(obs_shape=cfg.obs_shape, aug_types=cfg.aug_types)
 
     buffer_cfg = asdict(cfg.buffer)
     buffer_cfg['obs_shape'] = cfg.obs_shape

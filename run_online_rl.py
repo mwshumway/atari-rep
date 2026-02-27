@@ -13,7 +13,7 @@ import wandb
 def main(cfg):
     total_optimize_steps = (cfg.agent.num_timesteps - cfg.agent.min_buffer_size) * cfg.agent.optimize_per_env_step // cfg.num_train_envs
     cfg.prior_weight_scheduler.max_step = total_optimize_steps
-    cfg.eps_scheduler.max_step = total_optimize_steps
+    cfg.eps_scheduler.max_step = int(total_optimize_steps * 0.1)
     cfg.gamma_scheduler.max_step = total_optimize_steps
     cfg.n_step_scheduler.max_step = total_optimize_steps
 

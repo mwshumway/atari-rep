@@ -13,7 +13,6 @@ class AgentConfig:
     rep: bool = False
     rep_candidate: str = ""
 
-    aug_types: list = field(default_factory=lambda: ["random_shift", "intensity"])
     aug_target: bool = True
 
     double: bool = True

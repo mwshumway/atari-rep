@@ -211,11 +211,11 @@ class RainbowAgent(BaseAgent):
         self.eps = self.eps_scheduler.get_value(0)
 
         # Initial rollout before training
-        rollout_logs = self.rollout(online_model)
-        self.logger.update_log(mode="eval", **rollout_logs)
-        self.logger.write_log(mode="eval")
-        self.probe_on_policy(target_model, outer_step=0)
-        self.logger.probe_logger.reset()
+        # rollout_logs = self.rollout(online_model)
+        # self.logger.update_log(mode="eval", **rollout_logs)
+        # self.logger.write_log(mode="eval")
+        # self.probe_on_policy(target_model, outer_step=0)
+        # self.logger.probe_logger.reset()
         
         for step in tqdm.tqdm(range(1, self.cfg.agent.num_timesteps+1), desc="Training"):
             online_model.train()

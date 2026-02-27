@@ -10,7 +10,7 @@ from .base import BaseHead
 
 class MHNonLinearDistributionalHead(BaseHead):
     name = "mh_nonlinear_distributional"
-    def __init__(self, in_shape, hidden_sizes, action_size, num_heads, num_atoms, activation='relu'):
+    def __init__(self, in_shape, hidden_sizes, action_size, num_heads, num_atoms, activation='relu', **kwargs):
         super().__init__(in_shape, action_size)
         self.num_heads = num_heads
         self.num_atoms = num_atoms
@@ -77,11 +77,14 @@ class MHNonLinearDistributionalHead(BaseHead):
             x = self.activation(x) # type: ignore
 
         # Final linear layer -> action x num_atoms
-        w_out = rearrange(self.output_weights(idx_flat), 'b (i o) -> b i o', i=x.shape[1], o=a * n_a)
+        b = idx_flat.shape[0]
+        w_out = self.output_weights(idx_flat).view(b, x.shape[1], a * n_a)
+
         b_out = self.output_biases(idx_flat)
         x = torch.bmm(x.unsqueeze(1), w_out).squeeze(1) + b_out
 
         # Reshape to (n, t, action_size, num_atoms) and apply softmax over atoms
-        x = rearrange(x, '(n t) (a n_a) -> n t a n_a', t=t, a=a, n_a=n_a)
+        nt = x.shape[0]
+        x = x.view(nt // t, t, a, n_a)
         log_x = F.log_softmax(x, dim=-1)
         return torch.exp(log_x), {'log': log_x}

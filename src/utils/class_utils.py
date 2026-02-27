@@ -1,4 +1,8 @@
 import inspect
+import os
+import pkgutil
+import sys
+from importlib import import_module
 
 
 def all_subclasses(cls):
@@ -27,3 +31,22 @@ def save__init__args(values, underscore=False, overwrite=False, subclass_only=Fa
         attr = prefix + arg
         if arg in values and (not hasattr(self, attr) or overwrite):
             setattr(self, attr, values[arg])
+
+def import_all_subclasses(_file, _name, _class):
+    modules = get_all_submodules(_file, _name)
+    for m in modules:
+        for i in dir(m):
+            attribute = getattr(m, i)
+            if inspect.isclass(attribute) and issubclass(attribute, _class):
+                setattr(sys.modules[_name], i, attribute)
+
+
+def get_all_submodules(_file, _name):
+    modules = []
+    _dir = os.path.dirname(_file)
+    for _, name, ispkg in pkgutil.iter_modules([_dir]):
+        module = import_module('.' + name, package=_name)
+        modules.append(module)
+        if ispkg:
+            modules.extend(get_all_submodules(module.__file__, module.__name__))
+    return modules

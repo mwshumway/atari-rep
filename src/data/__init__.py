@@ -1,4 +1,5 @@
 from copy import deepcopy
+import os
 
 from src.data.data_utils import data_downloaded, build_hdf5_dataset, get_dataset_class, get_dataloader
 from src.data.convert_tf_files import convert_tf_files
@@ -30,6 +31,8 @@ def build_dataloader(args):
     dataset_class = get_dataset_class(args)
     train_dataset = dataset_class(file_paths=file_paths, args=args)
     eval_dataset = dataset_class(file_paths=file_paths, args=eval_args)
+
+    print(len(train_dataset), len(eval_dataset))
 
     train_dataloader, train_sampler = get_dataloader(args, train_dataset)
     eval_dataloader, eval_sampler = get_dataloader(eval_args, eval_dataset)

@@ -2,22 +2,23 @@ import os
 import subprocess
 
 PRETRAINED_PATHS = {
-    "cql": "./data_storage/pretrained_models/pretrain_cql/cql/cql-dist_resnet/epoch90.pth",
-    "atc": "./data_storage/pretrained_models/pretrain_atc/atc/atc_resnet/epoch50.pth",
-    "spr": "./data_storage/pretrained_models/pretrain_spr/spr/spr_resnet/epoch25.pth",
+    # "cql": "./data_storage/pretrained_models/pretrain_cql/cql/cql-dist_resnet/epoch90.pth",
+    # "atc": "./data_storage/pretrained_models/pretrain_atc/atc/atc_resnet/epoch50.pth",
+    # "spr": "./data_storage/pretrained_models/pretrain_spr/spr/spr_resnet/epoch25.pth",
     "baseline": ""
 }
 
-SEEDS = [0, 1]
+SEEDS = [0]
 GAMES = ["seaquest"]
 
 NONLINEAR_PROBE_HIDDEN_SIZES = ()
+REPEAT_ACTION_PROBABILITY = 0.25
 
 def make_cmd(path, seed, game, pretrain_type, log_dir):
     cmd = f"""#!/bin/bash -l
 
 # Set SCC project
-#$ -P replearn
+#$ -P ds598xz
 
 # Name the job in the queue
 #$ -N {pretrain_type}_{seed}
@@ -36,7 +37,7 @@ def make_cmd(path, seed, game, pretrain_type, log_dir):
 #$ -l gpus=1
 
 # GPU type
-#$ -l gpu_c=7.0
+#$ -l gpu_type=V100
 
 # Runtime
 #$ -l h_rt=12:00:00
@@ -45,18 +46,18 @@ module load miniconda
 conda activate atari-rep-bench
 module load cuda/12.5
 
-export CUDA_LAUNCH_BLOCKING=1
-export TORCH_COMPILE_DISABLE=1
+export CUBLAS_WORKSPACE_CONFIG=:4096:8 
     
 python run_online_rl.py \\
     --games {game} \\
     --seed {seed} \\
     --wandb.enabled \\
-    --wandb.project {game}_probe_on_policy \\
+    --wandb.project reproducibility_check \\
     --wandb.group {pretrain_type} \\
     --wandb.name {pretrain_type}_seed{seed} \\
-    --agent.probe_on_policy_freq 10000 \\
+    --agent.probe_on_policy_freq -1 \\
     --agent.rollout_freq 20000 \\
+    --agent.num_timesteps 10000 \\
     --agent.eval_freq -1 \\
     --agent.save_freq -1"""
 
@@ -67,6 +68,9 @@ python run_online_rl.py \\
         cmd += f"\n    --load_model.freeze_layers backbone"
         
     cmd += f"\n    --probe.hidden_sizes {' '.join(map(str, NONLINEAR_PROBE_HIDDEN_SIZES))}"
+
+    if REPEAT_ACTION_PROBABILITY != 0.25:
+        cmd += f" \\\n    --env.repeat_action_probability {REPEAT_ACTION_PROBABILITY}"
 
     cmd += "\n" # Add a final newline to be safe
     return cmd

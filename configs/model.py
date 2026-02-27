@@ -34,6 +34,10 @@ class HeadConfig:
     num_heads: int = 51
     num_atoms: int = 51
 
+    # SPR Head specific configs
+    num_predictions: Optional[int] = None # to be set as t_step - 1
+    num_actions: Optional[int] = None # to be set as action_size
+
 
 @dataclass
 class LoadModelConfig:

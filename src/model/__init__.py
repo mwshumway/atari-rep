@@ -40,7 +40,7 @@ def build_model(cfg, device: torch.device):
     backbone_cfg['action_size'] = backbone_cfg['action_size'] or cfg_dict['action_size']
     backbone = BACKBONES[backbone_type](**backbone_cfg)
 
-    fake_obs = torch.zeros((2, 3, *backbone_cfg['in_shape']))
+    fake_obs = torch.zeros((2, 1, *backbone_cfg['in_shape']))
     b_out, _ = backbone(fake_obs)
 
     neck_cfg['in_shape'] = neck_cfg['in_shape'] or b_out.shape[2:]

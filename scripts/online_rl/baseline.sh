@@ -19,9 +19,8 @@ module load miniconda
 conda activate atari-rep-bench
 module load cuda/12.5
 
+export CUBLAS_WORKSPACE_CONFIG=:4096:8 
 
-export CUDA_LAUNCH_BLOCKING=1
-export TORCH_COMPILE_DISABLE=1
 python run_online_rl.py \
     --games pong \
     --seed 0 \
