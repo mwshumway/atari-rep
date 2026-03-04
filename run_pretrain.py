@@ -83,7 +83,8 @@ def run_worker(gpu_id, num_gpus_per_node, cfg):
 
     if cfg.rank == 0 and cfg.wandb.enabled:
         wandb.finish()
-    dist.destroy_process_group()
+    if cfg.pretrain.distributed:
+        dist.destroy_process_group()
 
 
 if __name__ == "__main__":

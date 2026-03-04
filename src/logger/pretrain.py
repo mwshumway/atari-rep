@@ -10,13 +10,13 @@ class PretrainLogger:
         self.cfg = cfg
         self.rank = cfg.rank
         if self.cfg.wandb.enabled and self.rank == 0:
-            run_id = self.cfg.wandb.run_id if self.cfg.wandb.run_id else None
+            self.run_id = self.cfg.wandb.run_id if self.cfg.wandb.run_id else None
             wandb.init(
                 project=self.cfg.wandb.project,
                 name=self.cfg.wandb.name,
                 entity=self.cfg.wandb.entity,
                 group=self.cfg.wandb.group,
-                id=run_id,
+                id=self.run_id,
                 resume="allow",
                 config=asdict(self.cfg)
             )
@@ -34,7 +34,7 @@ class PretrainLogger:
     def save_dict(self, save_dict, name):
         # 3. Only save files on Rank 0
         if self.rank == 0:
-            path = f'./{self.cfg.pretrain.checkpoint_dir}/{self.cfg.project_name}/{self.cfg.group_name}/{self.cfg.exp_name}_{self.run_id}/{name}.pth'
+            path = f'./{self.cfg.pretrain.checkpoint_dir}/{self.cfg.wandb.project}/{self.cfg.wandb.group}/{self.cfg.wandb.name}_{self.run_id}/{name}.pth'
             _dir = os.path.dirname(path)
             if not os.path.exists(_dir):
                 os.makedirs(_dir)

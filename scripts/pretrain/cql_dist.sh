@@ -13,7 +13,7 @@
 #$ -l gpu_type=L40S
 
 # Runtime
-#$ -l h_rt=72:00:00
+#$ -l h_rt=36:00:00
 
 module load miniconda
 conda activate atari-rep-bench
@@ -36,7 +36,6 @@ python run_pretrain.py \
     --pretrain.v_min -10 \
     --pretrain.v_max 10 \
     --pretrain.num_atoms 51 \
-    --pretrain.feature_normalization False \
     --pretrain.cql_coefficient 0.1 \
     --pretrain.target_tau 0.99 \
     --optimizer.type 'adamw' \
