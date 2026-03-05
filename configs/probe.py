@@ -12,3 +12,8 @@ class ProbeConfig:
     min_delta: float = 1e-4
 
     hidden_sizes: tuple= ()
+
+    # Configs for probing experiments
+    type: str = "offline" # "online" or "offline"
+    policy_ckpt_dir: str = ""
+    save_dir: str = "data_storage/probe_results"

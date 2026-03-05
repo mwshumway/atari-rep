@@ -24,8 +24,8 @@ class AgentConfig:
     target_tau: float = 0.99
 
     eval_freq: int = -1
-    rollout_freq: int = 20_000
-    probe_on_policy_freq: int = 20_000
+    rollout_freq: int = 10_000
+    probe_on_policy_freq: int = -1
     save_freq: int = -1
     log_freq: int = 1_000
 
@@ -34,3 +34,6 @@ class AgentConfig:
 
     exploration_model: str = "target"
     update_buffer: bool = True
+
+    save_dir: str = "data_storage/policies"
+    pretrain_ckpt: int = 100

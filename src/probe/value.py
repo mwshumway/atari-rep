@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import tqdm
 import wandb
+import matplotlib.pyplot as plt
 
 from .probe_utils import ProbeDataset, stratified_split, build_probe
 
@@ -15,7 +16,7 @@ def compute_metrics(preds, targets):
     r2 = 1.0 - (ss_res / (ss_tot + 1e-8))
     return mse, r2.item()
 
-def train_value_probe(cfg, dataset_list, outer_step, device="cuda"):
+def train_value_probe(cfg, dataset_list, outer_step, device="cuda", log_wandb=True, plot_curves=False):
     
     # --- METRIC 3: Return Variance ---
     returns_tensor = torch.tensor([x[2] for x in dataset_list], dtype=torch.float32)
@@ -105,21 +106,43 @@ def train_value_probe(cfg, dataset_list, outer_step, device="cuda"):
 
     # Log metrics and FULL INTERACTIVE CHARTS tied to the outer RL step
     epochs_list = list(range(len(train_mses)))
-    wandb.log({
-        "outer_step": outer_step,
-        "probe_value/final_train_mse": train_mse,
-        "probe_value/final_test_mse": test_mse,
-        "probe_value/final_train_r2": train_r2,
-        "probe_value/final_test_r2": test_r2,
-        # Dataset Complexity Metrics
-        "probe_value/dataset_return_variance": return_var,
-        "probe_value/dataset_return_mean": return_mean,
-        "probe_value/dataset_size": len(dataset),
-        # Curves
-        "probe_value/mse_curve": wandb.plot.line_series(
-            xs=epochs_list, ys=[train_mses, test_mses], keys=["Train", "Test"], title="Value Probe MSE", xname="Epoch"
-        ),
-        "probe_value/r2_curve": wandb.plot.line_series(
-            xs=epochs_list, ys=[train_r2s, test_r2s], keys=["Train", "Test"], title="Value Probe R2", xname="Epoch"
-        )
-    })
+    if log_wandb:
+        wandb.log({
+            "outer_step": outer_step,
+            "probe_value/final_train_mse": train_mse,
+            "probe_value/final_test_mse": test_mse,
+            "probe_value/final_train_r2": train_r2,
+            "probe_value/final_test_r2": test_r2,
+            # Dataset Complexity Metrics
+            "probe_value/dataset_return_variance": return_var,
+            "probe_value/dataset_return_mean": return_mean,
+            "probe_value/dataset_size": len(dataset),
+            # Curves
+            "probe_value/mse_curve": wandb.plot.line_series(
+                xs=epochs_list, ys=[train_mses, test_mses], keys=["Train", "Test"], title="Value Probe MSE", xname="Epoch"
+            ),
+            "probe_value/r2_curve": wandb.plot.line_series(
+                xs=epochs_list, ys=[train_r2s, test_r2s], keys=["Train", "Test"], title="Value Probe R2", xname="Epoch"
+            )
+        })
+    if plot_curves:
+        plt.figure(figsize=(12, 5))
+        plt.subplot(1, 2, 1)
+        plt.plot(epochs_list, train_mses, label="Train MSE")
+        plt.plot(epochs_list, test_mses, label="Test MSE")
+        plt.xlabel("Epoch")
+        plt.ylabel("MSE")
+        plt.title(f"Value Probe MSE (Outer Step {outer_step})")
+        plt.legend()
+
+        plt.subplot(1, 2, 2)
+        plt.plot(epochs_list, train_r2s, label="Train R2")
+        plt.plot(epochs_list, test_r2s, label="Test R2")
+        plt.xlabel("Epoch")
+        plt.ylabel("R2")
+        plt.title(f"Value Probe R2 (Outer Step {outer_step})")
+        plt.legend()
+
+        plt.tight_layout()
+        plt.savefig(f"value_probe_curves_outer_step_{outer_step}.png")
+    return train_mse, test_mse, train_r2, test_r2

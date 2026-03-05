@@ -5,6 +5,7 @@ import torch
 from einops import rearrange
 import numpy as np
 import tqdm
+import os
 
 class RainbowAgent(BaseAgent):
     name = "rainbow"
@@ -211,11 +212,11 @@ class RainbowAgent(BaseAgent):
         self.eps = self.eps_scheduler.get_value(0)
 
         # Initial rollout before training
-        # rollout_logs = self.rollout(online_model)
-        # self.logger.update_log(mode="eval", **rollout_logs)
-        # self.logger.write_log(mode="eval")
-        # self.probe_on_policy(target_model, outer_step=0)
-        # self.logger.probe_logger.reset()
+        rollout_logs = self.rollout(online_model)
+        self.logger.update_log(mode="eval", **rollout_logs)
+        self.logger.write_log(mode="eval")
+        # self.probe_on_policy(online_model, outer_step=0)
+        self.logger.probe_logger.reset()
         
         for step in tqdm.tqdm(range(1, self.cfg.agent.num_timesteps+1), desc="Training"):
             online_model.train()
@@ -269,16 +270,16 @@ class RainbowAgent(BaseAgent):
                     self.logger.update_log(mode="eval", **eval_logs)
                 
                 if (step % self.cfg.agent.rollout_freq == 0) and (self.cfg.agent.rollout_freq > 0):
-                    rollout_logs = self.rollout(target_model)
+                    rollout_logs = self.rollout(online_model)
                     self.logger.update_log(mode="eval", **rollout_logs)
                     self.logger.write_log(mode="eval")
                 
                 if (step % self.cfg.agent.probe_on_policy_freq == 0) and (self.cfg.agent.probe_on_policy_freq > 0):
-                    self.probe_on_policy(target_model, step)
+                    self.probe_on_policy(online_model, step)
                     self.logger.probe_logger.reset()
                 
                 if (step % self.cfg.agent.save_freq == 0) and (self.cfg.agent.save_freq > 0):
-                    self.save_progress()
+                    self.save_progress(online_model, step)
                 
                 if step % self.cfg.agent.log_freq == 0:
                     self.logger.write_log(mode="train")
@@ -320,8 +321,47 @@ class RainbowAgent(BaseAgent):
             "max_steps_reached": all_envs_done
         }
     
-    def save_progress(self):
-        raise NotImplementedError("Progress saving not implemented yet.")
+    def save_progress(self, model, step):
+        """
+        Save the model. Only saves the model and not the optimizer or replay buffer.
+        Currently only care about being able to load the model to use as a policy for rollout and probing.
+        
+        TODO: consider saving optimizer and replay buffer for better resuming. This is currently not implemented because saving the buffer is very memory intensive and there is no use case at this point.
+        
+        If the backbone is frozen, we only need to save the neck and head weights, which significantly saves disk space.
+        """
+        save_path = os.path.join(
+            self.cfg.agent.save_dir,
+            self.cfg.games[0],
+            f"{self.cfg.pretrain.type}_ckpt{self.cfg.agent.pretrain_ckpt}_seed{self.cfg.seed}/step{step}"
+        )
+        os.makedirs(save_path, exist_ok=True)
+        neck_path = f"{save_path}/neck.pt"
+        head_path = f"{save_path}/head.pt"
+        if 'backbone' in self.cfg.load_model.freeze_layers:
+            torch.save(model.neck.state_dict(), neck_path)
+            torch.save(model.head.state_dict(), head_path)
+        else:
+            backbone_path = f"{save_path}/backbone.pt"
+            torch.save(model.backbone.state_dict(), backbone_path)
+            torch.save(model.neck.state_dict(), neck_path)
+            torch.save(model.head.state_dict(), head_path)
+    
+    def load_progress(self, model, load_path):
+        """
+        Load the model from the given path. This is used for loading a pretrained model to initialize the agent.
+        """
+        assert os.path.exists(load_path), f"Load path {load_path} does not exist."
+        neck_path = f"{load_path}/neck.pt"
+        head_path = f"{load_path}/head.pt"
+        if 'backbone' in self.cfg.load_model.freeze_layers:
+            model.neck.load_state_dict(torch.load(neck_path, map_location=self.device, weights_only=True))
+            model.head.load_state_dict(torch.load(head_path, map_location=self.device, weights_only=True))
+        else:
+            backbone_path = f"{load_path}/backbone.pt"
+            model.backbone.load_state_dict(torch.load(backbone_path, map_location=self.device, weights_only=True))
+            model.neck.load_state_dict(torch.load(neck_path, map_location=self.device, weights_only=True))
+            model.head.load_state_dict(torch.load(head_path, map_location=self.device, weights_only=True))
     
     def probe_on_policy(self, model, outer_step):
         """
@@ -374,5 +414,5 @@ class RainbowAgent(BaseAgent):
 
         # Train Value Probe
         from src.probe.value import train_value_probe
-        train_value_probe(cfg=self.cfg, dataset_list=dataset, outer_step=outer_step, device=self.device)
+        _ = train_value_probe(cfg=self.cfg, dataset_list=dataset, outer_step=outer_step, device=self.device)
             
