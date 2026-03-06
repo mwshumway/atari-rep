@@ -10,8 +10,8 @@ class EnvConfig:
     minimal_action_set: bool = True
     clip_reward: bool = True
     episodic_lives: bool = True
-    max_start_noops=30
-    repeat_action_probability=0.25
+    max_start_noops: int = 30
+    repeat_action_probability: float = 0.25
     horizon: int = 27_000
     stack_actions: int = 0
     grayscale: bool = True    

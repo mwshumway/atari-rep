@@ -212,10 +212,10 @@ class RainbowAgent(BaseAgent):
         self.eps = self.eps_scheduler.get_value(0)
 
         # Initial rollout before training
-        rollout_logs = self.rollout(online_model)
+        rollout_logs = self.rollout(target_model)
         self.logger.update_log(mode="eval", **rollout_logs)
         self.logger.write_log(mode="eval")
-        # self.probe_on_policy(online_model, outer_step=0)
+        # self.probe_on_policy(target_model, outer_step=0)
         self.logger.probe_logger.reset()
         
         for step in tqdm.tqdm(range(1, self.cfg.agent.num_timesteps+1), desc="Training"):
@@ -270,16 +270,16 @@ class RainbowAgent(BaseAgent):
                     self.logger.update_log(mode="eval", **eval_logs)
                 
                 if (step % self.cfg.agent.rollout_freq == 0) and (self.cfg.agent.rollout_freq > 0):
-                    rollout_logs = self.rollout(online_model)
+                    rollout_logs = self.rollout(target_model)
                     self.logger.update_log(mode="eval", **rollout_logs)
                     self.logger.write_log(mode="eval")
                 
                 if (step % self.cfg.agent.probe_on_policy_freq == 0) and (self.cfg.agent.probe_on_policy_freq > 0):
-                    self.probe_on_policy(online_model, step)
+                    self.probe_on_policy(target_model, step)
                     self.logger.probe_logger.reset()
                 
                 if (step % self.cfg.agent.save_freq == 0) and (self.cfg.agent.save_freq > 0):
-                    self.save_progress(online_model, step)
+                    self.save_progress(target_model, step)
                 
                 if step % self.cfg.agent.log_freq == 0:
                     self.logger.write_log(mode="train")

@@ -59,7 +59,7 @@ class AtariEnv(BaseEnv):
                  episodic_lives=True,
                  max_start_noops=30,
                  repeat_action_probability=0.,
-                 horizon=9000,  # 3000 for chopper command
+                 horizon=27_000,
                  stack_actions=0,
                  grayscale=True,
                  imagesize=84,

@@ -4,16 +4,16 @@ import subprocess
 CKPT_NUM = 100
 
 PRETRAINED_PATHS = {
-    "cql": f"./data_storage/pretrained_models/pretrain_cql_seaquest/cql/cql-dist_resnet_seaquest_None/epoch{CKPT_NUM}.pth",
+    # "cql": f"./data_storage/pretrained_models/pretrain_cql_seaquest/cql/cql-dist_resnet_seaquest_None/epoch{CKPT_NUM}.pth",
     # "atc": f"./data_storage/pretrained_models/pretrain_atc_seaquest/atc/atc_resnet_seaquest_None/epoch{CKPT_NUM}.pth",
     # "spr": f"./data_storage/pretrained_models/pretrain_spr_seaquest/spr/spr_resnet_seaquest_None/epoch{CKPT_NUM}.pth",
-    # "baseline": ""
+    "baseline": ""
 }
 
-SEEDS = [0, 1, 2]
+SEEDS = [0]
 GAMES = ["seaquest"]
 
-REPEAT_ACTION_PROBABILITY = 0.25
+REPEAT_ACTION_PROBABILITY = 0.0
 
 def make_cmd(path, seed, game, pretrain_type, log_dir):
     cmd = f"""#!/bin/bash -l
@@ -55,14 +55,15 @@ python run_online_rl.py \\
     --pretrain.type {pretrain_type} \\
     --agent.pretrain_ckpt {CKPT_NUM} \\
     --wandb.enabled \\
-    --wandb.project seaquest_single_pre_{pretrain_type} \\
+    --wandb.project seaquest_baseline_tests \\
     --wandb.group {pretrain_type} \\
-    --wandb.name {pretrain_type}_ckpt{CKPT_NUM}_seed{seed} \\
+    --wandb.name {pretrain_type}_seed{seed}_rr64 \\
     --agent.probe_on_policy_freq -1 \\
     --agent.rollout_freq 10000 \\
     --agent.num_timesteps 100000 \\
     --agent.eval_freq -1 \\
-    --agent.save_freq 10000"""
+    --agent.save_freq -1 \\
+    --agent.optimize_per_env_step 64"""
 
     # Conditionally append the load_model flags
     if pretrain_type != "baseline":
