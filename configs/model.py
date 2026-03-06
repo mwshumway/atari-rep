@@ -30,13 +30,9 @@ class HeadConfig:
     type: str = "mh_nonlinear_distributional"
     in_shape: Optional[tuple] = None
     action_size: Optional[int] = None
-    hidden_sizes: tuple = (128, 128, 64)
+    hidden_sizes: tuple = (256,)
     num_heads: int = 51
     num_atoms: int = 51
-
-    # SPR Head specific configs
-    num_predictions: Optional[int] = None # to be set as t_step - 1
-    num_actions: Optional[int] = None # to be set as action_size
 
 
 @dataclass
