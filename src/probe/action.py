@@ -10,7 +10,14 @@ import wandb
 
 from .probe_utils import ProbeDataset, stratified_split, build_probe
 
-def train_action_probe(cfg, dataset_list, outer_step, device="cuda", action_meanings: Optional[List[str]] = None):
+def train_action_probe(
+    cfg,
+    dataset_list,
+    outer_step,
+    device="cuda",
+    action_meanings: Optional[List[str]] = None,
+    log_prefix: str = "probe",
+):
     dataset = ProbeDataset(dataset_list)
 
     action_counts = defaultdict(int)
@@ -127,21 +134,22 @@ def train_action_probe(cfg, dataset_list, outer_step, device="cuda", action_mean
 
     # Log metrics and FULL INTERACTIVE CHARTS tied to the outer RL step
     epochs_list = list(range(len(train_losses)))
+    action_prefix = f"{log_prefix}_action"
     wandb.log({
         "outer_step": outer_step,
-        "probe_action/final_train_accuracy": train_acc,
-        "probe_action/final_test_accuracy": test_acc,
-        "probe_action/final_test_loss": avg_test_loss,
+        f"{action_prefix}/final_train_accuracy": train_acc,
+        f"{action_prefix}/final_test_accuracy": test_acc,
+        f"{action_prefix}/final_test_loss": avg_test_loss,
         # Dataset Complexity Metrics
-        "probe_action/dataset_action_entropy": action_entropy,
-        "probe_action/dataset_rep_mean_variance": state_var,
-        "probe_action/dataset_rep_effective_rank": effective_rank,
-        "probe_action/dataset_size": len(dataset),
+        f"{action_prefix}/dataset_action_entropy": action_entropy,
+        f"{action_prefix}/dataset_rep_mean_variance": state_var,
+        f"{action_prefix}/dataset_rep_effective_rank": effective_rank,
+        f"{action_prefix}/dataset_size": len(dataset),
         # Curves
-        "probe_action/loss_curve": wandb.plot.line_series(
+        f"{action_prefix}/loss_curve": wandb.plot.line_series(
             xs=epochs_list, ys=[train_losses, test_losses], keys=["Train", "Test"], title="Action Probe Loss", xname="Epoch"
         ),
-        "probe_action/accuracy_curve": wandb.plot.line_series(
+        f"{action_prefix}/accuracy_curve": wandb.plot.line_series(
             xs=epochs_list, ys=[train_accs, test_accs], keys=["Train", "Test"], title="Action Probe Accuracy", xname="Epoch"
         )
     })

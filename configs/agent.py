@@ -26,6 +26,7 @@ class AgentConfig:
     eval_freq: int = -1
     rollout_freq: int = 10_000
     probe_on_policy_freq: int = -1
+    probe_off_policy_freq: int = -1
     save_freq: int = -1
     log_freq: int = 1_000
 

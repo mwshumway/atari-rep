@@ -16,7 +16,15 @@ def compute_metrics(preds, targets):
     r2 = 1.0 - (ss_res / (ss_tot + 1e-8))
     return mse, r2.item()
 
-def train_value_probe(cfg, dataset_list, outer_step, device="cuda", log_wandb=True, plot_curves=False):
+def train_value_probe(
+    cfg,
+    dataset_list,
+    outer_step,
+    device="cuda",
+    log_wandb=True,
+    plot_curves=False,
+    log_prefix: str = "probe",
+):
     
     # --- METRIC 3: Return Variance ---
     returns_tensor = torch.tensor([x[2] for x in dataset_list], dtype=torch.float32)
@@ -107,21 +115,22 @@ def train_value_probe(cfg, dataset_list, outer_step, device="cuda", log_wandb=Tr
     # Log metrics and FULL INTERACTIVE CHARTS tied to the outer RL step
     epochs_list = list(range(len(train_mses)))
     if log_wandb:
+        value_prefix = f"{log_prefix}_value"
         wandb.log({
             "outer_step": outer_step,
-            "probe_value/final_train_mse": train_mse,
-            "probe_value/final_test_mse": test_mse,
-            "probe_value/final_train_r2": train_r2,
-            "probe_value/final_test_r2": test_r2,
+            f"{value_prefix}/final_train_mse": train_mse,
+            f"{value_prefix}/final_test_mse": test_mse,
+            f"{value_prefix}/final_train_r2": train_r2,
+            f"{value_prefix}/final_test_r2": test_r2,
             # Dataset Complexity Metrics
-            "probe_value/dataset_return_variance": return_var,
-            "probe_value/dataset_return_mean": return_mean,
-            "probe_value/dataset_size": len(dataset),
+            f"{value_prefix}/dataset_return_variance": return_var,
+            f"{value_prefix}/dataset_return_mean": return_mean,
+            f"{value_prefix}/dataset_size": len(dataset),
             # Curves
-            "probe_value/mse_curve": wandb.plot.line_series(
+            f"{value_prefix}/mse_curve": wandb.plot.line_series(
                 xs=epochs_list, ys=[train_mses, test_mses], keys=["Train", "Test"], title="Value Probe MSE", xname="Epoch"
             ),
-            "probe_value/r2_curve": wandb.plot.line_series(
+            f"{value_prefix}/r2_curve": wandb.plot.line_series(
                 xs=epochs_list, ys=[train_r2s, test_r2s], keys=["Train", "Test"], title="Value Probe R2", xname="Epoch"
             )
         })

@@ -4,7 +4,7 @@ from typing import Optional, List, Tuple
 
 from .data import DataConfig
 from .model import BackboneConfig, NeckConfig, HeadConfig, LoadModelConfig
-from .env import EnvConfig
+from .env import EnvConfig, EvalEnvConfig
 from .buffer import BufferConfig
 from .scheduler import PriorWeightSchedulerConfig, EpsSchedulerConfig, GammaSchedulerConfig, NStepSchedulerConfig, LRSchedulerConfig, TauSchedulerConfig
 from .optimizer import OptimizerConfig
@@ -21,6 +21,7 @@ class BaseConfig:
     head: HeadConfig = field(default_factory=HeadConfig)
     load_model: LoadModelConfig = field(default_factory=LoadModelConfig)
     env: EnvConfig = field(default_factory=EnvConfig)
+    eval_env: EvalEnvConfig = field(default_factory=EvalEnvConfig)
     buffer: BufferConfig = field(default_factory=BufferConfig)
     prior_weight_scheduler: PriorWeightSchedulerConfig = field(default_factory=PriorWeightSchedulerConfig)
     eps_scheduler: EpsSchedulerConfig = field(default_factory=EpsSchedulerConfig)

@@ -4,6 +4,7 @@ from src.model import build_model
 from src.logger import RainbowLogger
 from configs import BaseConfig
 from src.utils.seed import set_global_seeds
+from src.data import build_dataloader
 
 import torch
 import tyro
@@ -32,8 +33,14 @@ def main(cfg):
     # Build logger
     logger = RainbowLogger(cfg)
 
+    # Get off policy probing dataset (optional)
+    if cfg.agent.probe_off_policy_freq > 0:
+        _, _, eval_dataloader, _ = build_dataloader(cfg)
+    else:
+        eval_dataloader = None
+
     # Build agent
-    agent = build_agent(cfg, device, train_env, eval_env, logger, model)
+    agent = build_agent(cfg, device, train_env, eval_env, logger, model, eval_dataloader)
 
     # Train agent
     agent.train()

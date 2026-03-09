@@ -13,7 +13,7 @@ AGENTS = {subclass.get_name():subclass
 BUFFERS = {subclass.get_name():subclass
            for subclass in all_subclasses(BaseBuffer)}
 
-def build_agent(cfg, device, train_env, eval_env, logger, model):
+def build_agent(cfg, device, train_env, eval_env, logger, model, probe_dataloader=None):
     agent_type = cfg.agent.type
     agent = AGENTS[agent_type]
 
@@ -34,4 +34,5 @@ def build_agent(cfg, device, train_env, eval_env, logger, model):
                  model=model,
                  buffer=buffer,
                  logger=logger,
-                 aug_func=aug_func)
+                 aug_func=aug_func,
+                 probe_dataloader=probe_dataloader)

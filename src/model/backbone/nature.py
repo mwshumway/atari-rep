@@ -7,7 +7,8 @@ class Nature(BaseBackbone):
     name = 'nature'
     def __init__(self,
                  in_shape,
-                 action_size):
+                 action_size,
+                 **kwargs):
         super().__init__(in_shape, action_size)
         f, c, h, w = in_shape
         in_channels = f * c

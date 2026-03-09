@@ -16,7 +16,8 @@ class BaseAgent(metaclass=ABCMeta):
                  model,
                  buffer,
                  logger,
-                 aug_func):
+                 aug_func,
+                 probe_dataloader=None):
         super().__init__()
         self.cfg = cfg
         self.device = device
@@ -26,6 +27,7 @@ class BaseAgent(metaclass=ABCMeta):
         self.logger = logger
         self.buffer = buffer
         self.aug_func = aug_func.to(device)
+        self.probe_dataloader = probe_dataloader
 
         self.game_id = self.train_env.game_id
 

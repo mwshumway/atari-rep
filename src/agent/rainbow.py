@@ -18,8 +18,9 @@ class RainbowAgent(BaseAgent):
                  model,
                  buffer,
                  logger,
-                 aug_func):
-        super().__init__(cfg, device, train_env, eval_env, model, buffer, logger, aug_func)
+                 aug_func,
+                 probe_dataloader=None):
+        super().__init__(cfg, device, train_env, eval_env, model, buffer, logger, aug_func, probe_dataloader)
         
         # Load and freeze the target model
         self.target_model = copy.deepcopy(self.model).to(self.device)
@@ -36,13 +37,12 @@ class RainbowAgent(BaseAgent):
             self._compile()
     
     def _compile(self):
+        # Note: We only compile the backbone and neck. The head is usually small and had issues compiling it.
         self.model.backbone = torch.compile(self.model.backbone)
         self.model.neck = torch.compile(self.model.neck)
-        self.model.head = torch.compile(self.model.head)
 
         self.target_model.backbone = torch.compile(self.target_model.backbone)
         self.target_model.neck = torch.compile(self.target_model.neck)
-        self.target_model.head = torch.compile(self.target_model.head)
     
     def predict(self, model, backbone_feat, eps, n, t) -> torch.Tensor:
         """
@@ -215,7 +215,7 @@ class RainbowAgent(BaseAgent):
         rollout_logs = self.rollout(target_model)
         self.logger.update_log(mode="eval", **rollout_logs)
         self.logger.write_log(mode="eval")
-        # self.probe_on_policy(target_model, outer_step=0)
+        self.probe_on_policy(target_model, outer_step=0)
         self.logger.probe_logger.reset()
         
         for step in tqdm.tqdm(range(1, self.cfg.agent.num_timesteps+1), desc="Training"):
@@ -266,7 +266,7 @@ class RainbowAgent(BaseAgent):
                     optimize_step += 1
                 
                 if (step % self.cfg.agent.eval_freq == 0) and (self.cfg.agent.eval_freq > 0):
-                    eval_logs = self.evaluate(online_model)
+                    eval_logs = self.evaluate(target_model)
                     self.logger.update_log(mode="eval", **eval_logs)
                 
                 if (step % self.cfg.agent.rollout_freq == 0) and (self.cfg.agent.rollout_freq > 0):
@@ -278,6 +278,10 @@ class RainbowAgent(BaseAgent):
                     self.probe_on_policy(target_model, step)
                     self.logger.probe_logger.reset()
                 
+                if (step % self.cfg.agent.probe_off_policy_freq == 0) and (self.cfg.agent.probe_off_policy_freq > 0):
+                    self.probe_off_policy(online_model, step)
+                    self.logger.probe_logger.reset()
+                
                 if (step % self.cfg.agent.save_freq == 0) and (self.cfg.agent.save_freq > 0):
                     self.save_progress(target_model, step)
                 
@@ -285,7 +289,7 @@ class RainbowAgent(BaseAgent):
                     self.logger.write_log(mode="train")
 
         # Final evaluation after training
-        rollout_logs = self.rollout(online_model)
+        rollout_logs = self.rollout(target_model)
         self.logger.update_log(mode="eval", **rollout_logs)
         self.logger.write_log(mode="eval")
     
@@ -297,8 +301,11 @@ class RainbowAgent(BaseAgent):
         """Rollout the model on all the evaluation environments."""
         obs = self.eval_env.reset() # (n, t, num_envs, f, c, h, w)
         all_envs_done = False
+        rollout_cap = self.cfg.agent.max_rollout_steps
+        if hasattr(self.cfg, "eval_env") and hasattr(self.cfg.eval_env, "horizon"):
+            rollout_cap = max(rollout_cap, self.cfg.eval_env.horizon)
         
-        for step in tqdm.tqdm(range(self.cfg.agent.max_rollout_steps), desc="Rollout"):
+        for step in tqdm.tqdm(range(rollout_cap), desc="Rollout"):
             obs_tensor = self.buffer.encode_obs(obs, prediction=True).to(self.device)
             n, t, num_envs, f, c, h, w = obs_tensor.shape
             obs_tensor = rearrange(obs_tensor, 'n t num_envs f c h w -> (n num_envs) t f c h w')
@@ -374,8 +381,11 @@ class RainbowAgent(BaseAgent):
         
         obs = self.eval_env.reset() # (n, t, num_envs, f, c, h, w)
         game_id = torch.full((self.cfg.num_eval_envs, 1), self.game_id, dtype=torch.long, device=self.device)
+        rollout_cap = self.cfg.agent.max_rollout_steps
+        if hasattr(self.cfg, "eval_env") and hasattr(self.cfg.eval_env, "horizon"):
+            rollout_cap = max(rollout_cap, self.cfg.eval_env.horizon)
 
-        for step in tqdm.tqdm(range(self.cfg.agent.max_rollout_steps), desc="On-policy probing rollout"):
+        for step in tqdm.tqdm(range(rollout_cap), desc="On-policy probing rollout"):
             obs_tensor = self.buffer.encode_obs(obs, prediction=True).to(self.device)
             n, t, num_envs, f, c, h, w = obs_tensor.shape
             obs_tensor = rearrange(obs_tensor, 'n t num_envs f c h w -> (n num_envs) t f c h w')
@@ -410,9 +420,72 @@ class RainbowAgent(BaseAgent):
 
         # Train Action Probe
         from src.probe.action import train_action_probe
-        train_action_probe(cfg=self.cfg, dataset_list=dataset, outer_step=outer_step, device=self.device, action_meanings=self.train_env.get_action_meanings()) 
+        train_action_probe(
+            cfg=self.cfg,
+            dataset_list=dataset,
+            outer_step=outer_step,
+            device=self.device,
+            action_meanings=self.train_env.get_action_meanings(),
+            log_prefix="online_probe",
+        ) 
 
         # Train Value Probe
         from src.probe.value import train_value_probe
-        _ = train_value_probe(cfg=self.cfg, dataset_list=dataset, outer_step=outer_step, device=self.device)
+        _ = train_value_probe(
+            cfg=self.cfg,
+            dataset_list=dataset,
+            outer_step=outer_step,
+            device=self.device,
+            log_prefix="online_probe",
+        )
             
+
+    def probe_off_policy(self, model, outer_step):
+        """
+        Probe the current model with an off-policy dataset. The dataset is taken from the RLU Atari dataset.
+        """
+        from src.probe.probe_utils import _collate
+        dataset = []
+        for batch in tqdm.tqdm(self.probe_dataloader, desc="Loading off-policy probe dataset"):
+            batch = _collate(batch, f=self.cfg.frame)
+            obs = batch["obs"].to(self.device) # (n, t+f-1, c, h, w)
+            game_id = batch["game_id"].to(self.device)
+            rtg = batch["rtg"].to(self.device)
+            action = batch["act"].to(self.device)
+            game_id = rearrange(game_id, "n t -> (n t)")
+            rtg = rearrange(rtg, "n t -> (n t)")
+            action = rearrange(action, "n t -> (n t)")
+
+            with torch.no_grad():
+                backbone_feat, _ = model.backbone(obs)
+                if self.cfg.agent.rep:
+                    _, neck_info = model.neck(backbone_feat, game_id=game_id)
+                    neck_feat = neck_info[self.cfg.agent.rep_candidate]
+                else:
+                    neck_feat, _ = model.neck(backbone_feat, game_id=game_id)
+                neck_feat = neck_feat.cpu()
+            for i in range(neck_feat.shape[0]):
+                dataset.append((neck_feat[i], action[i].cpu(), rtg[i].cpu()))
+        
+        # Train Action Probe
+        from src.probe.action import train_action_probe
+        train_action_probe(
+            cfg=self.cfg,
+            dataset_list=dataset,
+            outer_step=outer_step,
+            device=self.device,
+            action_meanings=self.train_env.get_action_meanings(),
+            log_prefix="offline_probe",
+        ) 
+
+        # Train Value Probe
+        from src.probe.value import train_value_probe
+        _ = train_value_probe(
+            cfg=self.cfg,
+            dataset_list=dataset,
+            outer_step=outer_step,
+            device=self.device,
+            log_prefix="offline_probe",
+        )
+
+       

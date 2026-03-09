@@ -58,14 +58,15 @@ python run_online_rl.py \\
     --wandb.project seaquest_baseline_tests \\
     --wandb.group {pretrain_type} \\
     --wandb.name {pretrain_type}_seed{seed} \\
-    --agent.probe_on_policy_freq 10000 \\
-    --agent.probe_off_policy_freq 10000 \\
+    --agent.probe_on_policy_freq -1 \\
     --agent.rollout_freq 10000 \\
     --agent.num_timesteps 100000 \\
     --agent.eval_freq -1 \\
-    --agent.save_freq 10000 \\
+    --agent.save_freq -1 \\
     --agent.optimize_per_env_step 2 \\
-    --eval_env.repeat_action_probability 0.25"""
+    --eval_env.repeat_action_probability 0.0 \\
+    --backbone.type nature \\
+    --neck.type identity """
 
     # Conditionally append the load_model flags
     if pretrain_type != "baseline":
