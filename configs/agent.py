@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 class AgentConfig:
     type: str = "rainbow"
     num_timesteps: int = 100_000
+    spr_baseline_compat: bool = False
 
     min_buffer_size: int = 2_000
     v_min: float = -10.0

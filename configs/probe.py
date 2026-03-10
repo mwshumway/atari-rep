@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Tuple
 
 
 @dataclass
@@ -11,7 +12,7 @@ class ProbeConfig:
     patience: int = 50
     min_delta: float = 1e-4
 
-    hidden_sizes: tuple= ()
+    hidden_sizes: Tuple[int, ...] = ()
 
     # Configs for probing experiments
     type: str = "offline" # "online" or "offline"

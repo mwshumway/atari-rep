@@ -53,6 +53,7 @@ python run_online_rl.py \\
     --games {game} \\
     --seed {seed} \\
     --pretrain.type {pretrain_type} \\
+    --agent.spr_baseline_compat \\
     --agent.pretrain_ckpt {CKPT_NUM} \\
     --wandb.enabled \\
     --wandb.project seaquest_baseline_tests \\
@@ -63,7 +64,6 @@ python run_online_rl.py \\
     --agent.num_timesteps 100000 \\
     --agent.eval_freq -1 \\
     --agent.save_freq -1 \\
-    --agent.optimize_per_env_step 2 \\
     --eval_env.repeat_action_probability 0.0 \\
     --backbone.type nature \\
     --neck.type identity """

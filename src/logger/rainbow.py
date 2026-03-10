@@ -8,16 +8,20 @@ class RainbowLogger:
         self.cfg = cfg
         if self.cfg.wandb.enabled:
             run_id = self.cfg.wandb.run_id if self.cfg.wandb.run_id else None
-            wandb.init(
-                project=self.cfg.wandb.project,
-                name=self.cfg.wandb.name,
-                entity=self.cfg.wandb.entity,
-                group=self.cfg.wandb.group,
-                id=run_id,
-                resume="allow",
-                reinit=True,
-                config=asdict(self.cfg)
-            )
+            try:
+                wandb.init(
+                    project=self.cfg.wandb.project,
+                    name=self.cfg.wandb.name,
+                    entity=self.cfg.wandb.entity,
+                    group=self.cfg.wandb.group,
+                    id=run_id,
+                    resume="allow",
+                    reinit=True,
+                    config=asdict(self.cfg)
+                )
+            except Exception as exc:
+                print(f"[RainbowLogger] wandb.init failed: {exc}. Continuing with wandb disabled.")
+                self.cfg.wandb.enabled = False
 
         assert len(self.cfg.games) == 1, "Currently only supports logging for one game at a time."
 

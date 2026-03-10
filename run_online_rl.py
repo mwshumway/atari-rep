@@ -11,14 +11,57 @@ import tyro
 import sys
 import wandb
 
+
+def apply_spr_baseline_compat(cfg):
+    """Apply SPR-like online RL defaults without depending on rlpyt."""
+    cfg.backbone.type = "nature"
+    cfg.neck.type = "identity"
+
+    cfg.optimizer.type = "adam"
+    cfg.optimizer.lr = 1e-4
+    cfg.optimizer.eps = 1.5e-4
+    cfg.optimizer.betas = [0.9, 0.999]
+    cfg.optimizer.weight_decay = 0.0
+
+    cfg.agent.rep = False
+    cfg.agent.batch_size = 32
+    cfg.agent.min_buffer_size = 2_000
+    cfg.agent.optimize_per_env_step = 2
+    cfg.agent.target_tau = 0.0
+    cfg.agent.exploration_model = "online"
+    cfg.agent.update_buffer = False
+    cfg.agent.eval_eps = 0.001
+
+    cfg.buffer.prior_exp = 0.5
+    cfg.n_step = 10
+    cfg.n_step_scheduler.initial_value = 10
+    cfg.n_step_scheduler.final_value = 10
+    cfg.gamma = 0.99
+    cfg.gamma_scheduler.initial_value = 0.99
+    cfg.gamma_scheduler.final_value = 0.99
+
+    cfg.eps_scheduler.initial_value = 1.0
+    cfg.eps_scheduler.final_value = 0.0
+
+    cfg.agent.rollout_freq = 10_000
+    cfg.agent.eval_freq = -1
+
+    cfg.eval_env.repeat_action_probability = 0.0
+
 def main(cfg):
     train_env = None
     eval_env = None
     return_code = 0
 
+    if cfg.agent.spr_baseline_compat:
+        apply_spr_baseline_compat(cfg)
+
     total_optimize_steps = (cfg.agent.num_timesteps - cfg.agent.min_buffer_size) * cfg.agent.optimize_per_env_step // cfg.num_train_envs
     cfg.prior_weight_scheduler.max_step = total_optimize_steps
-    cfg.eps_scheduler.max_step = int(total_optimize_steps * 0.1)
+    if cfg.agent.spr_baseline_compat:
+        cfg.eps_scheduler.max_step = min(total_optimize_steps, 2_001)
+    else:
+        cfg.eps_scheduler.max_step = int(total_optimize_steps * 0.1)
     cfg.gamma_scheduler.max_step = total_optimize_steps
     cfg.n_step_scheduler.max_step = total_optimize_steps
 

@@ -219,9 +219,9 @@ class RainbowAgent(BaseAgent):
         # if self.cfg.agent.probe_on_policy_freq > 0:
         #     self.probe_on_policy(target_model, outer_step=0)
         #     self.logger.probe_logger.reset()
-        if self.cfg.agent.probe_off_policy_freq > 0:
-            self.probe_off_policy(target_model, outer_step=0)
-            self.logger.probe_logger.reset()
+        # if self.cfg.agent.probe_off_policy_freq > 0:
+        #     self.probe_off_policy(target_model, outer_step=0)
+        #     self.logger.probe_logger.reset()
         
         
         for step in tqdm.tqdm(range(1, self.cfg.agent.num_timesteps+1), desc="Training"):
@@ -366,7 +366,7 @@ class RainbowAgent(BaseAgent):
         save_path = os.path.join(
             self.cfg.agent.save_dir,
             self.cfg.games[0],
-            f"{self.cfg.pretrain.type}_ckpt{self.cfg.agent.pretrain_ckpt}_seed{self.cfg.seed}/step{step}"
+            f"{self.cfg.wandb.name}_ckpt{self.cfg.agent.pretrain_ckpt}/step{step}"
         )
         os.makedirs(save_path, exist_ok=True)
         neck_path = f"{save_path}/neck.pt"
@@ -488,8 +488,7 @@ class RainbowAgent(BaseAgent):
                     neck_feat = neck_info[self.cfg.agent.rep_candidate]
                 else:
                     neck_feat, _ = model.neck(backbone_feat, game_id=game_id)
-                neck_feat = neck_feat.cpu()
-                print(neck_feat.shape, action.shape, rtg.shape)
+                neck_feat = neck_feat.cpu().view(neck_feat.shape[0] * neck_feat.shape[1], -1) # (n*t, d )
             for i in range(neck_feat.shape[0]):
                 dataset.append((neck_feat[i], action[i].cpu(), rtg[i].cpu()))
         
