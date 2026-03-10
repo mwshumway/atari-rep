@@ -30,6 +30,8 @@ def worker(worker_id, env, master_end, worker_end):
         elif cmd == 'action_size':
             action_size = env.action_size
             worker_end.send(action_size)
+        elif cmd == 'render_frame':
+            worker_end.send(env.render_frame())
         else:
             raise NotImplementedError
 
@@ -112,3 +114,9 @@ class VecEnv(object):
         results = [master_end.recv() for master_end in self.master_ends]
 
         return np.stack(results)
+
+    def render_frame(self, env_index=0):
+        if env_index < 0 or env_index >= self.nenvs:
+            raise IndexError(f"env_index {env_index} out of range for {self.nenvs} eval envs")
+        self.master_ends[env_index].send(('render_frame', None))
+        return self.master_ends[env_index].recv()

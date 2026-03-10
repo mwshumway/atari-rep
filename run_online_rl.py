@@ -4,7 +4,7 @@ from src.model import build_model
 from src.logger import RainbowLogger
 from configs import BaseConfig
 from src.utils.seed import set_global_seeds
-from src.data import build_dataloader
+from src.data import build_dataloader, download_data
 
 import torch
 import tyro
@@ -12,44 +12,62 @@ import sys
 import wandb
 
 def main(cfg):
+    train_env = None
+    eval_env = None
+    return_code = 0
+
     total_optimize_steps = (cfg.agent.num_timesteps - cfg.agent.min_buffer_size) * cfg.agent.optimize_per_env_step // cfg.num_train_envs
     cfg.prior_weight_scheduler.max_step = total_optimize_steps
     cfg.eps_scheduler.max_step = int(total_optimize_steps * 0.1)
     cfg.gamma_scheduler.max_step = total_optimize_steps
     cfg.n_step_scheduler.max_step = total_optimize_steps
 
-    # Set random seed
-    set_global_seeds(cfg.seed)
-    
-    # Build envs
-    train_env, eval_env = build_env(cfg)
+    try:
+        # Set random seed
+        set_global_seeds(cfg.seed)
 
-    cfg.action_size = train_env.action_space.n
+        # Build envs
+        train_env, eval_env = build_env(cfg)
+        cfg.action_size = train_env.action_space.n
 
-    # Build model
-    device = torch.device(cfg.device)
-    model = build_model(cfg, device)
+        # Build model
+        device = torch.device(cfg.device)
+        model = build_model(cfg, device)
 
-    # Build logger
-    logger = RainbowLogger(cfg)
+        # Build logger
+        logger = RainbowLogger(cfg)
 
-    # Get off policy probing dataset (optional)
-    if cfg.agent.probe_off_policy_freq > 0:
-        _, _, eval_dataloader, _ = build_dataloader(cfg)
-    else:
-        eval_dataloader = None
+        # Get off policy probing dataset (optional)
+        if cfg.agent.probe_off_policy_freq > 0:
+            download_data(cfg) # downloads if not already done, else skips
+            _, _, eval_dataloader, _ = build_dataloader(cfg)
+        else:
+            eval_dataloader = None
 
-    # Build agent
-    agent = build_agent(cfg, device, train_env, eval_env, logger, model, eval_dataloader)
+        # Build agent
+        agent = build_agent(cfg, device, train_env, eval_env, logger, model, eval_dataloader)
 
-    # Train agent
-    agent.train()
-    
-    if cfg.wandb.enabled:
-        wandb.finish()
-    
-    train_env.close()
-    eval_env.close()
+        # Train agent
+        agent.train()
+    except KeyboardInterrupt:
+        return_code = 130
+    except Exception:
+        return_code = 1
+        raise
+    finally:
+        if cfg.wandb.enabled:
+            try:
+                wandb.finish(exit_code=return_code)
+            except TypeError:
+                wandb.finish()
+
+        if train_env is not None:
+            train_env.close()
+
+        if eval_env is not None:
+            eval_env.close()
+
+    return return_code
 
 
 if __name__ == "__main__":

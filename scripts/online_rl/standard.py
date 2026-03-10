@@ -43,19 +43,33 @@ def make_cmd(path, seed, game, pretrain_type, log_dir):
 # Runtime
 #$ -l h_rt=12:00:00
 
+set -euo pipefail
+
+cleanup() {{
+    status=$?
+    jobs -pr | xargs -r kill -TERM || true
+    sleep 2
+    jobs -pr | xargs -r kill -KILL || true
+    wait || true
+    exit $status
+}}
+trap cleanup EXIT TERM INT
+
 module load miniconda
 conda activate atari-rep-bench
 module load cuda/12.5
 
 export CUBLAS_WORKSPACE_CONFIG=:4096:8 
+export PYTHONUNBUFFERED=1
+export WANDB__SERVICE_WAIT=60
     
-python run_online_rl.py \\
+timeout --signal=TERM --kill-after=120s 11h50m python -u run_online_rl.py \\
     --games {game} \\
     --seed {seed} \\
     --pretrain.type {pretrain_type} \\
     --agent.pretrain_ckpt {CKPT_NUM} \\
     --wandb.enabled \\
-    --wandb.project seaquest_baseline_tests \\
+    --wandb.project seaquest_off_on_policy_probing \\
     --wandb.group {pretrain_type} \\
     --wandb.name {pretrain_type}_seed{seed} \\
     --agent.probe_on_policy_freq 10000 \\
@@ -65,7 +79,12 @@ python run_online_rl.py \\
     --agent.eval_freq -1 \\
     --agent.save_freq 10000 \\
     --agent.optimize_per_env_step 2 \\
-    --eval_env.repeat_action_probability 0.25"""
+    --eval_env.repeat_action_probability 0.25 \\
+    --data.runs 1 2 3 4 5 \\
+    --data.checkpoints 49 \\
+    --data.dataset_name seaquest_expert \\
+    --data.eval_ratio 0.25 \\
+    --agent.record_rollout_video"""
 
     # Conditionally append the load_model flags
     if pretrain_type != "baseline":

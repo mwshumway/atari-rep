@@ -32,6 +32,9 @@ class AgentConfig:
 
     max_rollout_steps: int = 10_000
     eval_eps: float = 0.001
+    record_rollout_video: bool = False
+    rollout_video_fps: int = 15
+    rollout_video_env_index: int = 0
 
     exploration_model: str = "target"
     update_buffer: bool = True

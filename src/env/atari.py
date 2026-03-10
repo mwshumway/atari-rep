@@ -182,6 +182,19 @@ class AtariEnv(BaseEnv):
         cv2.imshow(self._game, img)
         cv2.waitKey(wait)
 
+    def render_frame(self):
+        """Returns the latest frame as HWC uint8 for logging/video."""
+        obs = self.get_obs()
+        frame = obs[-1]
+        if frame.ndim == 2:
+            frame = frame[:, :, np.newaxis]
+        else:
+            frame = np.transpose(frame, (1, 2, 0))
+
+        if frame.shape[-1] == 1:
+            frame = np.repeat(frame, 3, axis=-1)
+        return frame.astype(np.uint8)
+
     def get_obs(self):
         return self._obs.copy()
 

@@ -6,6 +6,7 @@ from einops import rearrange
 import numpy as np
 import tqdm
 import os
+import wandb
 
 class RainbowAgent(BaseAgent):
     name = "rainbow"
@@ -211,12 +212,17 @@ class RainbowAgent(BaseAgent):
         optimize_step = 1
         self.eps = self.eps_scheduler.get_value(0)
 
-        # Initial rollout before training
-        rollout_logs = self.rollout(target_model)
-        self.logger.update_log(mode="eval", **rollout_logs)
-        self.logger.write_log(mode="eval")
-        self.probe_on_policy(target_model, outer_step=0)
-        self.logger.probe_logger.reset()
+        # # Initial rollout before training
+        # rollout_logs = self.rollout(target_model)
+        # self.logger.update_log(mode="eval", **rollout_logs)
+        # self.logger.write_log(mode="eval")
+        # if self.cfg.agent.probe_on_policy_freq > 0:
+        #     self.probe_on_policy(target_model, outer_step=0)
+        #     self.logger.probe_logger.reset()
+        if self.cfg.agent.probe_off_policy_freq > 0:
+            self.probe_off_policy(target_model, outer_step=0)
+            self.logger.probe_logger.reset()
+        
         
         for step in tqdm.tqdm(range(1, self.cfg.agent.num_timesteps+1), desc="Training"):
             online_model.train()
@@ -301,6 +307,16 @@ class RainbowAgent(BaseAgent):
         """Rollout the model on all the evaluation environments."""
         obs = self.eval_env.reset() # (n, t, num_envs, f, c, h, w)
         all_envs_done = False
+        video_frames = []
+        should_record_video = (
+            self.cfg.wandb.enabled
+            and self.cfg.agent.record_rollout_video
+            and hasattr(self.eval_env, "render_frame")
+        )
+
+        if should_record_video:
+            video_frames.append(self.eval_env.render_frame(env_index=self.cfg.agent.rollout_video_env_index))
+
         rollout_cap = self.cfg.agent.max_rollout_steps
         if hasattr(self.cfg, "eval_env") and hasattr(self.cfg.eval_env, "horizon"):
             rollout_cap = max(rollout_cap, self.cfg.eval_env.horizon)
@@ -315,6 +331,9 @@ class RainbowAgent(BaseAgent):
             
             next_obs, reward, done, info = self.eval_env.step(action.reshape(-1))
 
+            if should_record_video:
+                video_frames.append(self.eval_env.render_frame(env_index=self.cfg.agent.rollout_video_env_index))
+
             self.logger.step(obs, reward, done, info, mode="eval")
 
             if self.logger.is_traj_done(mode="eval"):
@@ -323,10 +342,17 @@ class RainbowAgent(BaseAgent):
 
             obs = next_obs
 
-        return {
+        rollout_logs = {
             "rollout_steps": step + 1,
             "max_steps_reached": all_envs_done
         }
+
+        if should_record_video and len(video_frames) > 0:
+            video = np.stack(video_frames, axis=0)
+            video = np.transpose(video, (0, 3, 1, 2))
+            rollout_logs["rollout_video"] = wandb.Video(video, fps=self.cfg.agent.rollout_video_fps, format="mp4")
+
+        return rollout_logs
     
     def save_progress(self, model, step):
         """
@@ -452,7 +478,6 @@ class RainbowAgent(BaseAgent):
             game_id = batch["game_id"].to(self.device)
             rtg = batch["rtg"].to(self.device)
             action = batch["act"].to(self.device)
-            game_id = rearrange(game_id, "n t -> (n t)")
             rtg = rearrange(rtg, "n t -> (n t)")
             action = rearrange(action, "n t -> (n t)")
 
@@ -464,6 +489,7 @@ class RainbowAgent(BaseAgent):
                 else:
                     neck_feat, _ = model.neck(backbone_feat, game_id=game_id)
                 neck_feat = neck_feat.cpu()
+                print(neck_feat.shape, action.shape, rtg.shape)
             for i in range(neck_feat.shape[0]):
                 dataset.append((neck_feat[i], action[i].cpu(), rtg[i].cpu()))
         
