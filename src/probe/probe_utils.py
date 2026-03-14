@@ -62,6 +62,13 @@ def create_probe_dataset(env_trajectories, cfg):
             # Append state, action, and the computed return-to-go
             state_t, action_t, _, _ = traj[t]
             dataset.append((state_t, action_t, ret))
+
+    # sample to reach cfg.probe.dataset_size
+    if len(dataset) > cfg.probe.dataset_size:
+        dataset = random.sample(dataset, cfg.probe.dataset_size)
+    else:
+        raise ValueError(f"Not enough data to create probe dataset. Required: {cfg.probe.dataset_size}, Available: {len(dataset)}")
+
     return dataset
 
 def build_probe(rep_dim, action_size, hidden_sizes, device):

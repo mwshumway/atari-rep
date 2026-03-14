@@ -49,7 +49,9 @@ class BaseTrainer():
         self.distributed = self.cfg.pretrain.distributed
         if self.distributed:
             self.model.backbone = torch.nn.parallel.DistributedDataParallel(self.model.backbone)
-            self.model.neck = torch.nn.parallel.DistributedDataParallel(self.model.neck)
+            if any(p.requires_grad for p in self.model.neck.parameters()):
+                # Occasionally use an identity neck that has no parameters.
+                self.model.neck = torch.nn.parallel.DistributedDataParallel(self.model.neck)
             self.model.head = torch.nn.parallel.DistributedDataParallel(self.model.head)
         
         if self.cfg.pretrain.compile:

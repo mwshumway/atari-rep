@@ -13,7 +13,7 @@
 #$ -l gpu_c=8.0
 
 # Runtime
-#$ -l h_rt=12:00:00
+#$ -l h_rt=36:00:00
 
 module load miniconda
 conda activate atari-rep-bench
@@ -27,8 +27,9 @@ python run_pretrain.py \
     --pretrain.distributed \
     --wandb.enabled \
     --wandb.project 'pretrain_atc_seaquest' \
-    --wandb.name 'atc_resnet_seaquest' \
+    --wandb.name 'atc_nature_seaquest' \
     --wandb.group 'atc' \
+    --backbone.type 'nature' \
     --head.type 'mh_linear' \
     --head.action_size 512 \
     --neck.type 'mh_mlp' \
@@ -43,4 +44,3 @@ python run_pretrain.py \
     --games "seaquest" \
     --data.dataset_name 'seaquest_5runs_10ckpts_10ksamples' \
     --data.runs 1 2 3 4 5 \
-    --pretrain.target_update_every -1 \

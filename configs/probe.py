@@ -14,7 +14,10 @@ class ProbeConfig:
 
     hidden_sizes: Tuple[int, ...] = ()
 
+    dataset_size: int = 25_000
+
     # Configs for probing experiments
     type: str = "offline" # "online" or "offline"
+    analyze_only: bool = False
     policy_ckpt_dir: str = ""
     save_dir: str = "data_storage/probe_results"

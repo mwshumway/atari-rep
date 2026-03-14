@@ -33,6 +33,8 @@ class HeadConfig:
     hidden_sizes: tuple = (256,)
     num_heads: int = 51
     num_atoms: int = 51
+    num_predictions: int = -1
+    num_actions: int = -1
 
 
 @dataclass

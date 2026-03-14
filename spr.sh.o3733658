@@ -1,0 +1,64 @@
+seaquest_5runs_10ckpts_10ksamples dataset already exists. Skipping download.
+Rank 1, Use cuda:1 for training
+Train with distributed data parallel
+{'observation': PosixPath('data_storage/replay/consolidated/seaquest_5runs_10ckpts_10ksamples/observation.hdf5'), 'action': PosixPath('data_storage/replay/consolidated/seaquest_5runs_10ckpts_10ksamples/action_0_0.99.hdf5'), 'reward': PosixPath('data_storage/replay/consolidated/seaquest_5runs_10ckpts_10ksamples/reward_0_0.99.hdf5'), 'terminal': PosixPath('data_storage/replay/consolidated/seaquest_5runs_10ckpts_10ksamples/terminal_0_0.99.hdf5'), 'game_id': PosixPath('data_storage/replay/consolidated/seaquest_5runs_10ckpts_10ksamples/game_id_0_0.99.hdf5'), 'rtg': PosixPath('data_storage/replay/consolidated/seaquest_5runs_10ckpts_10ksamples/rtg_0_0.99.hdf5')}
+HDF5 dataset already exists. Skipping consolidation.
+HDF5 dataset is ready.
+499650 4650
+number of training batches: 3904
+number of eval batches: 73
+Initializing SPRHead with in_dim: 512, num_heads: 51, num_predictions: 4, num_actions: 512, action_size: 512
+==================================================
+Model Info:
+Backbone: Nature
+Neck: MHMLPNeck
+Head: SPRHead
+==================================================
+Backbone output shape: torch.Size([2, 1, 64, 7, 7])
+Neck output shape: torch.Size([2, 1, 512])
+Head output shape: torch.Size([2, 4, 512])
+Neck representation - rep_candidate_1: torch.Size([2, 1, 64])
+Neck representation - rep_candidate_2: torch.Size([2, 1, 64])
+Neck representation - rep_candidate_3: torch.Size([2, 1, 1024])
+Neck representation - rep_candidate_4: torch.Size([2, 1, 512])
+==================================================
+epoch: 1
+Rank 0, Use cuda:0 for training
+Train with distributed data parallel
+{'observation': PosixPath('data_storage/replay/consolidated/seaquest_5runs_10ckpts_10ksamples/observation.hdf5'), 'action': PosixPath('data_storage/replay/consolidated/seaquest_5runs_10ckpts_10ksamples/action_0_0.99.hdf5'), 'reward': PosixPath('data_storage/replay/consolidated/seaquest_5runs_10ckpts_10ksamples/reward_0_0.99.hdf5'), 'terminal': PosixPath('data_storage/replay/consolidated/seaquest_5runs_10ckpts_10ksamples/terminal_0_0.99.hdf5'), 'game_id': PosixPath('data_storage/replay/consolidated/seaquest_5runs_10ckpts_10ksamples/game_id_0_0.99.hdf5'), 'rtg': PosixPath('data_storage/replay/consolidated/seaquest_5runs_10ckpts_10ksamples/rtg_0_0.99.hdf5')}
+HDF5 dataset already exists. Skipping consolidation.
+HDF5 dataset is ready.
+499650 4650
+number of training batches: 3904
+number of eval batches: 73
+Initializing SPRHead with in_dim: 512, num_heads: 51, num_predictions: 4, num_actions: 512, action_size: 512
+==================================================
+Model Info:
+Backbone: Nature
+Neck: MHMLPNeck
+Head: SPRHead
+==================================================
+Backbone output shape: torch.Size([2, 1, 64, 7, 7])
+Neck output shape: torch.Size([2, 1, 512])
+Head output shape: torch.Size([2, 4, 512])
+Neck representation - rep_candidate_1: torch.Size([2, 1, 64])
+Neck representation - rep_candidate_2: torch.Size([2, 1, 64])
+Neck representation - rep_candidate_3: torch.Size([2, 1, 1024])
+Neck representation - rep_candidate_4: torch.Size([2, 1, 512])
+==================================================
+epoch: 1
+epoch: 2
+epoch: 2
+epoch: 3
+epoch: 3
+epoch: 4
+epoch: 4
+epoch: 5
+epoch: 5
+epoch: 6
+Checkpoint saved successfully at ./data_storage/pretrained_models/pretrain_spr_seaquest/spr/spr_nature_seaquest_None/epoch5.pth
+epoch: 6
+epoch: 7
+epoch: 7
+epoch: 8
+epoch: 8

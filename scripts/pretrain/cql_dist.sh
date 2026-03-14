@@ -6,14 +6,14 @@
 # Request 8 cores
 #$ -pe omp 8
 
-# Request 3 gpus
-#$ -l gpus=3
+# Request 2 gpus
+#$ -l gpus=2
 
 # Minimum compute capability
 #$ -l gpu_type=L40S
 
 # Runtime
-#$ -l h_rt=36:00:00
+#$ -l h_rt=12:00:00
 
 module load miniconda
 conda activate atari-rep-bench
@@ -22,13 +22,14 @@ module load cuda/12.5
 export CUBLAS_WORKSPACE_CONFIG=:4096:8 
 
 python run_pretrain.py \
-    --num_gpus_per_node 3 \
+    --num_gpus_per_node 2 \
     --data.distributed \
     --pretrain.distributed \
     --wandb.enabled \
     --wandb.project 'pretrain_cql_seaquest' \
-    --wandb.name 'cql-dist_resnet_seaquest' \
+    --wandb.name 'cql-dist_nature_seaquest' \
     --wandb.group 'cql' \
+    --backbone.type 'nature' \
     --head.type 'mh_nonlinear_distributional' \
     --neck.type 'mh_mlp' \
     --neck.hidden_dims 1024 512 \

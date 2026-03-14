@@ -1,4 +1,5 @@
 from .base import BaseAgent
+from src.model import build_model
 
 import copy
 import torch
@@ -222,6 +223,9 @@ class RainbowAgent(BaseAgent):
         # if self.cfg.agent.probe_off_policy_freq > 0:
         #     self.probe_off_policy(target_model, outer_step=0)
         #     self.logger.probe_logger.reset()
+        if self.cfg.agent.random_probe: # Perform a random probe before training to get a baseline for probing performance
+            self.random_probe(step=0)
+            self.logger.probe_logger.reset()
         
         
         for step in tqdm.tqdm(range(1, self.cfg.agent.num_timesteps+1), desc="Training"):
@@ -285,9 +289,9 @@ class RainbowAgent(BaseAgent):
                     self.logger.probe_logger.reset()
                 
                 if (step % self.cfg.agent.probe_off_policy_freq == 0) and (self.cfg.agent.probe_off_policy_freq > 0):
-                    self.probe_off_policy(online_model, step)
+                    self.probe_off_policy(target_model, step)
                     self.logger.probe_logger.reset()
-                
+                                
                 if (step % self.cfg.agent.save_freq == 0) and (self.cfg.agent.save_freq > 0):
                     self.save_progress(target_model, step)
                 
@@ -396,7 +400,7 @@ class RainbowAgent(BaseAgent):
             model.neck.load_state_dict(torch.load(neck_path, map_location=self.device, weights_only=True))
             model.head.load_state_dict(torch.load(head_path, map_location=self.device, weights_only=True))
     
-    def probe_on_policy(self, model, outer_step):
+    def probe_on_policy(self, model, outer_step, prefix="on_policy_probe"):
         """
         Create an on-policy dataset of the current model and probe it with a linear layer.
         """
@@ -452,7 +456,7 @@ class RainbowAgent(BaseAgent):
             outer_step=outer_step,
             device=self.device,
             action_meanings=self.train_env.get_action_meanings(),
-            log_prefix="online_probe",
+            log_prefix=prefix,
         ) 
 
         # Train Value Probe
@@ -462,11 +466,11 @@ class RainbowAgent(BaseAgent):
             dataset_list=dataset,
             outer_step=outer_step,
             device=self.device,
-            log_prefix="online_probe",
+            log_prefix=prefix,
         )
             
 
-    def probe_off_policy(self, model, outer_step):
+    def probe_off_policy(self, model, outer_step, prefix="off_policy_probe"):
         """
         Probe the current model with an off-policy dataset. The dataset is taken from the RLU Atari dataset.
         """
@@ -500,7 +504,7 @@ class RainbowAgent(BaseAgent):
             outer_step=outer_step,
             device=self.device,
             action_meanings=self.train_env.get_action_meanings(),
-            log_prefix="offline_probe",
+            log_prefix=prefix,
         ) 
 
         # Train Value Probe
@@ -510,7 +514,22 @@ class RainbowAgent(BaseAgent):
             dataset_list=dataset,
             outer_step=outer_step,
             device=self.device,
-            log_prefix="offline_probe",
+            log_prefix=prefix,
         )
 
-       
+    def random_probe(self, step):
+        """
+        Probe a random model with the same architecture as the online/target model to get a baseline for probing performance. 
+        This can help us understand how much the model has learned compared to a random representation.
+        """
+        random_model_cfg = copy.deepcopy(self.cfg)
+        random_model_cfg.load_model.freeze_layers = ['backbone', 'neck', 'head'] # freeze all layers to keep it random
+        random_model_cfg.load_model.enable = False # disable loading to ensure it's random
+        random_model = build_model(random_model_cfg, self.device)
+
+        # Probe with the random model
+        # self.probe_on_policy(random_model, step, prefix="random_on_policy_probe")
+        # self.logger.probe_logger.reset()
+
+        self.probe_off_policy(random_model, step, prefix="random_off_policy_probe")
+        self.logger.probe_logger.reset()

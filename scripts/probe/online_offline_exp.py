@@ -13,7 +13,7 @@ PRETRAINED_PATHS = {
 SEEDS = [0, 1, 2]
 GAMES = ["seaquest"]
 
-REPEAT_ACTION_PROBABILITY = 0.25
+REPEAT_ACTION_PROBABILITY = 0.0
 
 def make_cmd(path, seed, game, pretrain_type, log_dir):
     cmd = f"""#!/bin/bash -l

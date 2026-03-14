@@ -4,22 +4,25 @@ import subprocess
 CKPT_NUM = 100
 
 PRETRAINED_PATHS = {
-    "cql": f"./data_storage/pretrained_models/pretrain_cql_seaquest/cql/cql-dist_resnet_seaquest_None/epoch100.pth",
-    "atc": f"./data_storage/pretrained_models/pretrain_atc_seaquest/atc/atc_resnet_seaquest_None/epoch100.pth",
+    # "cql": f"./data_storage/pretrained_models/pretrain_cql_seaquest/cql/cql-dist_resnet_seaquest_None/epoch100.pth",
+    # "atc": f"./data_storage/pretrained_models/pretrain_atc_seaquest/atc/atc_resnet_seaquest_None/epoch100.pth",
     "spr": f"./data_storage/pretrained_models/pretrain_spr_seaquest/spr/spr_resnet_seaquest_None/epoch25.pth",
-    "baseline": ""
+    # "nature-e2e": "",
+    # "baseline": ""
 }
 
-SEEDS = [0, 1, 2]
+SEEDS = [0]
 GAMES = ["seaquest"]
 
-REPEAT_ACTION_PROBABILITY = 0.25
+REPEAT_ACTION_PROBABILITY = 0.0
+
+SPR_BASELINE_COMPAT = False
 
 def make_cmd(path, seed, game, pretrain_type, log_dir):
     cmd = f"""#!/bin/bash -l
 
 # Set SCC project
-#$ -P replearn
+#$ -P ds598xz
 
 # Name the job in the queue
 #$ -N {pretrain_type}_{seed}
@@ -69,32 +72,33 @@ timeout --signal=TERM --kill-after=120s 42600s python -u run_online_rl.py \\
     --pretrain.type {pretrain_type} \\
     --agent.pretrain_ckpt {CKPT_NUM} \\
     --wandb.enabled \\
-    --wandb.project seaquest_off_on_policy_probing_nonlinear \\
+    --wandb.project probing_testbed \\
     --wandb.group {pretrain_type} \\
-    --wandb.name {pretrain_type}_seed{seed}_nonlinear \\
+    --wandb.name {pretrain_type}_seed{seed}_nonlinear256 \\
     --agent.probe_on_policy_freq 10000 \\
     --agent.probe_off_policy_freq 10000 \\
+    --agent.random_probe \\
     --agent.rollout_freq 10000 \\
     --agent.num_timesteps 100000 \\
     --agent.eval_freq -1 \\
     --agent.save_freq 10000 \\
     --agent.optimize_per_env_step 2 \\
-    --eval_env.repeat_action_probability 0.25 \\
+    --env.repeat_action_probability {REPEAT_ACTION_PROBABILITY} \\
+    --eval_env.repeat_action_probability {REPEAT_ACTION_PROBABILITY} \\
     --data.runs 1 2 3 4 5 \\
     --data.checkpoints 49 \\
     --data.dataset_name seaquest_expert \\
-    --data.eval_ratio 0.25 \\
-    --agent.record_rollout_video \\
-    --probe.hidden_sizes 256 128"""
+    --data.eval_ratio 0.99 \\
+    --probe.hidden_sizes 256"""
 
     # Conditionally append the load_model flags
-    if pretrain_type != "baseline":
+    if pretrain_type not in ("baseline", "nature-e2e"):
         cmd += f" \\\n    --load_model.enable \\"
         cmd += f"\n    --load_model.model_path {path} \\"
         cmd += f"\n    --load_model.freeze_layers backbone"
         
-    if REPEAT_ACTION_PROBABILITY != 0.25:
-        cmd += f" \\\n    --env.repeat_action_probability {REPEAT_ACTION_PROBABILITY}"
+    if SPR_BASELINE_COMPAT:
+        cmd += " \\\n    --agent.spr_baseline_compat"
 
     cmd += "\n" # Add a final newline to be safe
     return cmd

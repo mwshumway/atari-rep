@@ -1,19 +1,19 @@
 #!/bin/bash -l
 
 # Set SCC project
-#$ -P replearn
+#$ -P ds598xz
 
 # Request 8 cores
 #$ -pe omp 8
 
-# Request 3 gpus
-#$ -l gpus=3
+# Request 2 gpus
+#$ -l gpus=2
 
 # Minimum compute capability
 #$ -l gpu_type=L40S
 
 # Runtime
-#$ -l h_rt=72:00:00
+#$ -l h_rt=12:00:00
 
 module load miniconda
 conda activate atari-rep-bench
@@ -27,12 +27,13 @@ python run_pretrain.py \
     --pretrain.distributed \
     --wandb.enabled \
     --wandb.project 'pretrain_spr_seaquest' \
-    --wandb.name 'spr_resnet_seaquest' \
+    --wandb.name 'spr_nature_seaquest' \
     --wandb.group 'spr' \
     --head.type 'spr_head' \
     --t_step 5 \
     --n_step 0 \
     --head.action_size 512 \
+    --backbone.type 'nature' \
     --neck.type 'mh_mlp' \
     --neck.hidden_dims 1024 512 \
     --pretrain.type 'spr' \

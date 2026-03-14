@@ -1,0 +1,7 @@
+wandb: Currently logged in as: mshumway (mshumway-boston-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.21.1
+wandb: Run data is saved locally in /projectnb/ds598xz/students/mshumway/atari-rep/wandb/run-20260313_163703-blwiobjy
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run atc_resnet_seaquest
+wandb: ⭐️ View project at https://wandb.ai/mshumway-boston-university/pretrain_atc_seaquest
+wandb: 🚀 View run at https://wandb.ai/mshumway-boston-university/pretrain_atc_seaquest/runs/blwiobjy

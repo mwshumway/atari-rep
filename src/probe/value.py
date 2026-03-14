@@ -26,10 +26,11 @@ def train_value_probe(
     log_prefix: str = "probe",
 ):
     
-    # --- METRIC 3: Return Variance ---
-    returns_tensor = torch.tensor([x[2] for x in dataset_list], dtype=torch.float32)
-    return_var = torch.var(returns_tensor).item()
-    return_mean = torch.mean(returns_tensor).item()
+    # --- METRIC 3: Value Variance ---
+    values_tensor = torch.tensor([x[2] for x in dataset_list], dtype=torch.float32)
+    value_var = torch.var(values_tensor).item()
+    value_mean = torch.mean(values_tensor).item()
+    value_percent_zero = (values_tensor == 0).float().mean().item()
     
     dataset = ProbeDataset(dataset_list)
     train_ds, test_ds = stratified_split(dataset, test_frac=cfg.probe.test_frac, seed=cfg.seed)
@@ -123,8 +124,9 @@ def train_value_probe(
             f"{value_prefix}/final_train_r2": train_r2,
             f"{value_prefix}/final_test_r2": test_r2,
             # Dataset Complexity Metrics
-            f"{value_prefix}/dataset_return_variance": return_var,
-            f"{value_prefix}/dataset_return_mean": return_mean,
+            f"{value_prefix}/dataset_value_variance": value_var,
+            f"{value_prefix}/dataset_value_mean": value_mean,
+            f"{value_prefix}/dataset_value_percent_zero": value_percent_zero,
             f"{value_prefix}/dataset_size": len(dataset),
             # Curves
             f"{value_prefix}/mse_curve": wandb.plot.line_series(
