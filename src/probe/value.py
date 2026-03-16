@@ -6,7 +6,8 @@ import tqdm
 import wandb
 import matplotlib.pyplot as plt
 
-from .probe_utils import ProbeDataset, stratified_split, build_probe
+
+from .probe_utils import ProbeDataset, build_probe
 
 def compute_metrics(preds, targets):
     mse = nn.functional.mse_loss(preds, targets).item()
@@ -15,6 +16,19 @@ def compute_metrics(preds, targets):
     ss_res = torch.sum((targets - preds) ** 2)
     r2 = 1.0 - (ss_res / (ss_tot + 1e-8))
     return mse, r2.item()
+
+
+def summarize_tensor(x: torch.Tensor, prefix: str):
+    flat = x.detach().float().view(-1).cpu()
+    return {
+        f"{prefix}_mean": flat.mean().item(),
+        f"{prefix}_std": flat.std(unbiased=False).item(),
+        f"{prefix}_min": flat.min().item(),
+        f"{prefix}_max": flat.max().item(),
+        f"{prefix}_p10": flat.quantile(0.10).item(),
+        f"{prefix}_p50": flat.quantile(0.50).item(),
+        f"{prefix}_p90": flat.quantile(0.90).item(),
+    }
 
 def train_value_probe(
     cfg,
@@ -33,7 +47,19 @@ def train_value_probe(
     value_percent_zero = (values_tensor == 0).float().mean().item()
     
     dataset = ProbeDataset(dataset_list)
-    train_ds, test_ds = stratified_split(dataset, test_frac=cfg.probe.test_frac, seed=cfg.seed)
+    # Don't stratify by actions for value probing.
+    full_dataset_size = len(dataset)
+    test_size = int(full_dataset_size * cfg.probe.test_frac)
+    train_size = full_dataset_size - test_size
+    
+    from torch.utils.data import Subset
+    train_ds = Subset(dataset, range(0, train_size))
+    test_ds = Subset(dataset, range(train_size, full_dataset_size))
+
+    train_loader = DataLoader(train_ds, batch_size=cfg.probe.batch_size, shuffle=True)
+    test_loader = DataLoader(test_ds, batch_size=cfg.probe.batch_size)
+
+
     train_loader = DataLoader(train_ds, batch_size=cfg.probe.batch_size, shuffle=True)
     test_loader = DataLoader(test_ds, batch_size=cfg.probe.batch_size)
 
@@ -116,8 +142,21 @@ def train_value_probe(
     # Log metrics and FULL INTERACTIVE CHARTS tied to the outer RL step
     epochs_list = list(range(len(train_mses)))
     if log_wandb:
+        train_residuals = train_preds - train_targets
+        test_residuals = test_preds - test_targets
+
+        train_split_stats = {}
+        train_split_stats.update(summarize_tensor(train_preds, "train_pred"))
+        train_split_stats.update(summarize_tensor(train_targets, "train_target"))
+        train_split_stats.update(summarize_tensor(train_residuals, "train_residual"))
+
+        test_split_stats = {}
+        test_split_stats.update(summarize_tensor(test_preds, "test_pred"))
+        test_split_stats.update(summarize_tensor(test_targets, "test_target"))
+        test_split_stats.update(summarize_tensor(test_residuals, "test_residual"))
+
         value_prefix = f"{log_prefix}_value"
-        wandb.log({
+        wandb_data = {
             "outer_step": outer_step,
             f"{value_prefix}/final_train_mse": train_mse,
             f"{value_prefix}/final_test_mse": test_mse,
@@ -134,8 +173,17 @@ def train_value_probe(
             ),
             f"{value_prefix}/r2_curve": wandb.plot.line_series(
                 xs=epochs_list, ys=[train_r2s, test_r2s], keys=["Train", "Test"], title="Value Probe R2", xname="Epoch"
-            )
-        })
+            ),
+            f"{value_prefix}/train_pred_hist": wandb.Histogram(train_preds.detach().view(-1).cpu().numpy()),
+            f"{value_prefix}/train_target_hist": wandb.Histogram(train_targets.detach().view(-1).cpu().numpy()),
+            f"{value_prefix}/test_pred_hist": wandb.Histogram(test_preds.detach().view(-1).cpu().numpy()),
+            f"{value_prefix}/test_target_hist": wandb.Histogram(test_targets.detach().view(-1).cpu().numpy()),
+        }
+
+        wandb_data.update({f"{value_prefix}/{k}": v for k, v in train_split_stats.items()})
+        wandb_data.update({f"{value_prefix}/{k}": v for k, v in test_split_stats.items()})
+
+        wandb.log(wandb_data)
     if plot_curves:
         plt.figure(figsize=(12, 5))
         plt.subplot(1, 2, 1)

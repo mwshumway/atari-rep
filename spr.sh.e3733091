@@ -1,9 +1,0 @@
-╭─ Unrecognized options ───────────────────────────────────────────────────╮
-│ Unrecognized options: --head.num_predictions, 4, --head.num_actions, 512 │
-│ ──────────────────────────────────────────────────────────────────────── │
-│ Arguments similar to --head.num_actions:                                 │
-│     --head.num-atoms INT                                                 │
-│         (default: 51)                                                    │
-│ ──────────────────────────────────────────────────────────────────────── │
-│ For full helptext, run run_pretrain.py --help                            │
-╰──────────────────────────────────────────────────────────────────────────╯

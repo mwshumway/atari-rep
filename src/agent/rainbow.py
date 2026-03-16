@@ -475,15 +475,13 @@ class RainbowAgent(BaseAgent):
         Probe the current model with an off-policy dataset. The dataset is taken from the RLU Atari dataset.
         """
         from src.probe.probe_utils import _collate
-        dataset = []
+        probe_dataset = []
         for batch in tqdm.tqdm(self.probe_dataloader, desc="Loading off-policy probe dataset"):
             batch = _collate(batch, f=self.cfg.frame)
             obs = batch["obs"].to(self.device) # (n, t+f-1, c, h, w)
             game_id = batch["game_id"].to(self.device)
-            rtg = batch["rtg"].to(self.device)
             action = batch["act"].to(self.device)
-            rtg = rearrange(rtg, "n t -> (n t)")
-            action = rearrange(action, "n t -> (n t)")
+            rtg = batch["rtg"].to(self.device)
 
             with torch.no_grad():
                 backbone_feat, _ = model.backbone(obs)
@@ -492,15 +490,24 @@ class RainbowAgent(BaseAgent):
                     neck_feat = neck_info[self.cfg.agent.rep_candidate]
                 else:
                     neck_feat, _ = model.neck(backbone_feat, game_id=game_id)
-                neck_feat = neck_feat.cpu().view(neck_feat.shape[0] * neck_feat.shape[1], -1) # (n*t, d )
-            for i in range(neck_feat.shape[0]):
-                dataset.append((neck_feat[i], action[i].cpu(), rtg[i].cpu()))
-        
+                neck_feat = neck_feat.cpu()  # (n, t, d)
+
+            n, t, _ = neck_feat.shape
+            for i in range(n):
+                for j in range(t):
+                    probe_dataset.append((neck_feat[i, j], action[i, j].cpu(), rtg[i, j].cpu()))
+
+        if len(probe_dataset) >= self.cfg.probe.dataset_size:
+            probe_dataset = probe_dataset[:self.cfg.probe.dataset_size]
+        else:
+            raise ValueError(f"Not enough data to create probe dataset. Required: {self.cfg.probe.dataset_size}, Available: {len(probe_dataset)}")
+
+
         # Train Action Probe
         from src.probe.action import train_action_probe
         train_action_probe(
             cfg=self.cfg,
-            dataset_list=dataset,
+            dataset_list=probe_dataset,
             outer_step=outer_step,
             device=self.device,
             action_meanings=self.train_env.get_action_meanings(),
@@ -511,7 +518,7 @@ class RainbowAgent(BaseAgent):
         from src.probe.value import train_value_probe
         _ = train_value_probe(
             cfg=self.cfg,
-            dataset_list=dataset,
+            dataset_list=probe_dataset,
             outer_step=outer_step,
             device=self.device,
             log_prefix=prefix,

@@ -17,35 +17,52 @@ class ProbeDataset(Dataset):
         state, action, reward = self.data[idx]
         return state.float(), action, reward
     
-# ---------------- Stratified Split ----------------
-def stratified_split(dataset, test_frac=0.2, seed=0):
-    rng = random.Random(seed)
-
-    # group indices by action
-    class_indices = defaultdict(list)
-    for idx in range(len(dataset)):
-        _, action, _ = dataset[idx]
-        class_indices[int(action)].append(idx)
-
-    train_indices = []
-    test_indices = []
-
-    for cls, indices in class_indices.items():
-        rng.shuffle(indices)
-        split = int(len(indices) * (1 - test_frac))
-        train_indices.extend(indices[:split])
-        test_indices.extend(indices[split:])
-
-    return Subset(dataset, train_indices), Subset(dataset, test_indices)
-
 def create_probe_dataset(env_trajectories, cfg):
     dataset = []
     n_step = cfg.probe.n_step
     gamma = cfg.gamma
-    
-    for i in range(cfg.num_eval_envs):
-        traj = env_trajectories[i]
+
+    def _is_transition(x):
+        return isinstance(x, (list, tuple)) and len(x) == 4
+
+    def _signed_reward(r):
+        r = float(r)
+        if r > 0:
+            return 1.0
+        if r < 0:
+            return -1.0
+        return 0.0
+
+    # Support both:
+    # 1) on-policy: list of trajectories, each trajectory is a list of (state, action, reward, done)
+    # 2) off-policy: a single mixed list of (state, action, reward, done)
+    #    (possibly wrapped as [mixed_list])
+    if len(env_trajectories) == 0:
+        raise ValueError("No trajectories provided to create_probe_dataset.")
+
+    first = env_trajectories[0]
+    if _is_transition(first):
+        # Flat transition list -> split into pseudo-trajectories at done=True boundaries
+        trajectories = []
+        current_traj = []
+        for transition in env_trajectories:
+            if not _is_transition(transition):
+                raise ValueError("Malformed transition encountered in flat probe dataset.")
+            current_traj.append(transition)
+            if bool(transition[3]):
+                trajectories.append(current_traj)
+                current_traj = []
+        if len(current_traj) > 0:
+            trajectories.append(current_traj)
+    else:
+        # List of trajectories
+        trajectories = env_trajectories
+
+    for traj in trajectories:
         T = len(traj)
+        if T == 0:
+            continue
+
         # Efficiently compute n-step returns
         for t in range(T):
             ret = 0.0
@@ -53,19 +70,18 @@ def create_probe_dataset(env_trajectories, cfg):
             for k in range(n_step):
                 if t + k >= T:
                     break
-                state_k, action_k, reward_k, done_k = traj[t + k]
-                ret += discount * reward_k
+                _, _, reward_k, done_k = traj[t + k]
+                ret += discount * _signed_reward(reward_k)
                 if done_k:  # Episode ended, stop bootstrapping
                     break
                 discount *= gamma
-            
+
             # Append state, action, and the computed return-to-go
             state_t, action_t, _, _ = traj[t]
             dataset.append((state_t, action_t, ret))
 
-    # sample to reach cfg.probe.dataset_size
-    if len(dataset) > cfg.probe.dataset_size:
-        dataset = random.sample(dataset, cfg.probe.dataset_size)
+    if len(dataset) >= cfg.probe.dataset_size:
+        dataset = dataset[:cfg.probe.dataset_size]
     else:
         raise ValueError(f"Not enough data to create probe dataset. Required: {cfg.probe.dataset_size}, Available: {len(dataset)}")
 

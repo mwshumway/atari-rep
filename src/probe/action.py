@@ -8,7 +8,7 @@ import tqdm
 from typing import Optional, List
 import wandb
 
-from .probe_utils import ProbeDataset, stratified_split, build_probe
+from .probe_utils import ProbeDataset, build_probe
 
 def train_action_probe(
     cfg,
@@ -48,9 +48,17 @@ def train_action_probe(
     effective_rank = torch.exp(-torch.sum(p * torch.log(p))).item()
 
     # Split and Train as usual
-    train_ds, test_ds = stratified_split(dataset, test_frac=cfg.probe.test_frac, seed=cfg.seed)
+    full_dataset_size = len(dataset)
+    test_size = int(full_dataset_size * cfg.probe.test_frac)
+    train_size = full_dataset_size - test_size
+    
+    from torch.utils.data import Subset
+    train_ds = Subset(dataset, range(0, train_size))
+    test_ds = Subset(dataset, range(train_size, full_dataset_size))
+    
     train_loader = DataLoader(train_ds, batch_size=cfg.probe.batch_size, shuffle=True)
     test_loader = DataLoader(test_ds, batch_size=cfg.probe.batch_size)
+
 
     rep_dim = dataset[0][0].shape[-1]
 

@@ -225,13 +225,16 @@ def load_checkpoint_dataset(args, game, run, ckpt, obs_exist):
 
         elif file_type == "rtg":
             rewards = dataset['reward']
-            dones = dataset['terminal']
+            raw_dones = load_from_gz(gz_filepath.with_name(f"terminal_{run}_{ckpt}.npy.gz"), args).astype(bool) # load raw dones to compute RTG, since the n-step propagated dones won't work for this
+
             gamma = args.gamma
-            n_step = args.n_step
+            n_step = args.probe.n_step
             rtgs = np.zeros_like(rewards)
             for step in reversed(range(n_step)):
                 n_step_reward = np.concatenate((rewards[step:], np.zeros(step)))
-                n_step_done = np.concatenate((dones[step:], np.zeros(step)))                            
+                n_step_done = np.concatenate((raw_dones[step:], np.zeros(step)))
+
+                n_step_reward = np.sign(n_step_reward)  # clip rewards to -1, 0, 1
                 rtgs = n_step_reward + gamma * rtgs * (1 - n_step_done)
             
             data = rtgs

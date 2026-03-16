@@ -1,7 +1,7 @@
 #!/bin/bash -l
 
 # Set SCC project
-#$ -P ds598xz
+#$ -P replearn
 
 # Request 8 cores
 #$ -pe omp 8

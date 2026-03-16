@@ -74,7 +74,7 @@ timeout --signal=TERM --kill-after=120s 42600s python -u run_online_rl.py \\
     --wandb.enabled \\
     --wandb.project probing_testbed \\
     --wandb.group {pretrain_type} \\
-    --wandb.name {pretrain_type}_seed{seed}_nonlinear256 \\
+    --wandb.name off_policy_rtg_and_temporal_split_{pretrain_type}_s{seed} \\
     --agent.probe_on_policy_freq 10000 \\
     --agent.probe_off_policy_freq 10000 \\
     --agent.random_probe \\
